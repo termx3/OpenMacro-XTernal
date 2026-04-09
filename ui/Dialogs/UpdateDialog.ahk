@@ -3,41 +3,61 @@
 #Include ..\Components\Button.ahk
 #Include ..\Components\InfoPopup.ahk
 
-GetUpdDialog(currentVer, UpdatedVer) {
+GetUpdDialog(currentVer, updatedVer) {
+    handoffStarted := false
+
     mg := Gui("AlwaysOnTop +Border")
     mg.BackColor := 0x171717
+    mg.Title := "Update Available"
 
-    mg.AddText("x0 y280 w400 h1 +Background0x646464","")
+    mg.AddText("x0 y280 w400 h1 +Background0x646464", "")
     Border(mg, 10, 40, 380, 1, 646464)
     mg.AddText("x5 y282 w200 h20 c646464", "Client Version: " currentVer).SetFont("s10 italic")
     mg.AddText("x345 y282 w50 h20 c646464", "XTernal").SetFont("s10 italic")
 
-    mg.AddText("x40 y10 w300 h30 cWhite", "Update Available (" UpdatedVer ")").SetFont("s15")
+    mg.AddText("x40 y10 w300 h30 cWhite", "Update Available (" updatedVer ")").SetFont("s15")
     mg.AddPic("x10 y10 w26 h26 icon176", "imageres.dll")
-    mg.AddText("x10 y55 w380 h200 cWhite", "Updated versions ensure compatibility and avoid detection entirely.`n`nWe strongly discourage using outdated software. We are not liable for platform actions on your account caused by outdated software.`n`nRoblox frequently changes how data is stored in memory with each update. The macro cannot read this data correctly without an update.").SetFont("s10")
+    mg.AddText("x10 y55 w380 h200 cWhite", "A newer version of XTernal is available on GitHub.`n`nThe updater installs the exact files published for the matching version tag, then restarts the macro once the update is staged successfully.").SetFont("s10")
 
     LearnMore := mg.AddText("x80 y200 w90 h20 c646464", "Learn More")
     LearnMore.SetFont("s10 italic underline")
-    LearnMore.OnEvent("Click", (*) => 
-        InfoPopup.Show("Why Outdated Versions Are Dangerous", 
-            "Roblox stores game data (player position, camera, health, etc.) at specific memory locations. These locations change with every Roblox update.`n`n"
-            "When XTernal uses outdated information:`n"
-            "• The macro reads incorrect memory, also called garbage`n"
-            "• Data becomes corrupted or nonsensical`n"
-            "• Unusual patterns can trigger Roblox' anti cheat detection`n`n"
-            "Updated versions include fresh memory locations that match the current Roblox build, ensuring the macro reads correct data and operates safely."
+    LearnMore.OnEvent("Click", (*) =>
+        InfoPopup.Show(
+            "How Updates Work",
+            "XTernal checks the repository version file on startup.`n`n"
+            . "When an update is available, it downloads the exact GitHub tag ZIP for that version, stages it in a temporary folder, then replaces the shipped app files after the current script exits."
         )
     )
 
-    button(mg, "Download", 10, 240, {
-        W: 100,
-        h: 30,
+    DownloadBtn := button(mg, "Download", 10, 240, {
+        w: 100,
+        h: 30
     })
-    button(mg, "Later", 120, 240, {
+    LaterBtn := button(mg, "Later", 120, 240, {
         w: 100,
         h: 30,
         bg: 171717
-    }).OnEvent("Click", (*) => ExitApp())
+    })
+
+    DownloadBtn.OnEvent("Click", DownloadClicked)
+    LaterBtn.OnEvent("Click", CloseDialog)
+    mg.OnEvent("Close", CloseDialog)
+    mg.OnEvent("Escape", CloseDialog)
 
     mg.Show("w400 h300")
+    WinWaitClose(mg.Hwnd)
+    return handoffStarted
+
+    DownloadClicked(*) {
+        if !BeginUpdateInstall(updatedVer, true)
+            return
+
+        handoffStarted := true
+        mg.Destroy()
+    }
+
+    CloseDialog(*) {
+        handoffStarted := false
+        mg.Destroy()
+    }
 }

@@ -3,20 +3,23 @@
 MAJOR_VER       := "v0"
 FULL_VER        := "v0.0.4"
 ROBLOX_VER      := "version-689e359b09ad43b0"
+GITHUB_OWNER    := "termx3"
+GITHUB_REPO     := "OpenMacro-XTernal"
+VERSION_URL     := "https://raw.githubusercontent.com/" GITHUB_OWNER "/" GITHUB_REPO "/main/version.txt"
+TAG_ZIP_BASE_URL := "https://github.com/" GITHUB_OWNER "/" GITHUB_REPO "/archive/refs/tags/"
+UPDATE_RELAUNCH_ARG := "--post-update"
 ROBLOX_INSTANCE := "RobloxPlayerBeta.exe"
 H_PROCESS       := 0
 RBLX_PID        := 0
 RBLX_BASE       := 0
 OFFSETS         := Map()
-OFFSETS_PATH    := "settings\offsets.json"
+OFFSETS_PATH    := A_ScriptDir "\settings\offsets.json"
 
 APPDATA_DIR   := EnvGet("APPDATA") "\OpenMacro\XTernal"
 CONFIGS_DIR   := APPDATA_DIR "\configs"
 SETTINGS_PATH := APPDATA_DIR "\settings.json"
-
-POST_UPDATE_ACK_PATH := APPDATA_DIR "\post-update-ack.txt"
 POST_UPDATE_FLAG_PATH := APPDATA_DIR "\post-update.txt"
-UPDATE_RELAUNCH_ARG  := "--post-update"
+POST_UPDATE_ACK_PATH  := APPDATA_DIR "\post-update-ack.txt"
 
 DC_INV_LIN      := ""
 ROD           := ""
@@ -60,7 +63,7 @@ GetDefaultSettings() {
         "text_color", "f5f7fa"
     )
 
-    defaults["env"] := "dev"
+    defaults["env"] := "prod"
 
     defaults["hotkeys"] := Map(
         "fix_roblox", "F2",

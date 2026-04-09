@@ -8,6 +8,8 @@ GetPostUpdateDialog(updatedVersion := "") {
     g.BackColor := 0x171717
     g.Title := "Update Complete"
 
+    BgColor := APPEARANCE["bg_color"]
+
     heading := (updatedVersion != "") ? "Successfully Updated to " updatedVersion : "Successfully Updated"
 
     g.AddText("x40 y10 w340 h40 cWhite", heading).SetFont("s15")
@@ -19,7 +21,8 @@ GetPostUpdateDialog(updatedVersion := "") {
 
     CloseBtn := button(g, "Close", 10, 135, {
         w: 100,
-        h: 30
+        h: 30,
+        bg: BgColor
     })
 
     CloseBtn.OnEvent("Click", CloseDialog)

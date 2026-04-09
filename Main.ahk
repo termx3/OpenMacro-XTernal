@@ -27,17 +27,22 @@ You do not retain ownership rights that allow you to license or distribute the c
 #Include library\JSON.ahk
 #Include shared\Constants.ahk
 #Include shared\Settings.ahk
+#Include shared\Update.ahk
 #Include shared\Process.ahk
 #Include shared\Read.ahk
 #Include shared\Memory.ahk
 #Include shared\Hotkeys.ahk
 #Include shared\Fish.ahk
 #Include library\DiscordBuilderAHK-0.0.1.1\DiscordBuilder.ahk
+#Include ui\Dialogs\UpdateDialog.ahk
 #Include ui\Dialogs\PostUpdateDialog.ahk
 #Include ui\Gui.ahk
 
 global Macro := CreateFishingMacro()
 global Controller := FishingController()
+
+if HandleStartupUpdate()
+    ExitApp()
 
 HotkeyManager.RegisterAll(SETTINGS)
 
@@ -81,57 +86,16 @@ Initialize() {
     SetTimer(MacroLoop, MAIN["update_rate"])
 }
 
-EnsurePostUpdateAckDir() {
-    if !DirExist(APPDATA_DIR)
-        DirCreate(APPDATA_DIR)
-}
+HandleStartupUpdate() {
+    remoteVersion := CheckForAvailableUpdate()
 
-RecordSuccessfulUpdateLaunch() {
-    if (A_Args.Length < 2)
-        return
+    if (remoteVersion = "")
+        return false
 
-    if (A_Args[1] != UPDATE_RELAUNCH_ARG)
-        return
+    if (UPDATE["auto_update"])
+        return BeginUpdateInstall(remoteVersion)
 
-    updatedVersion := Trim(A_Args[2], " `t`r`n")
-
-    if (updatedVersion != FULL_VER)
-        return
-
-    EnsurePostUpdateAckDir()
-
-    try {
-        if FileExist(POST_UPDATE_ACK_PATH)
-            FileDelete(POST_UPDATE_ACK_PATH)
-
-        FileAppend(updatedVersion, POST_UPDATE_ACK_PATH, "UTF-8-RAW")
-    } catch {
-    }
-
-    try {
-        if FileExist(POST_UPDATE_FLAG_PATH)
-            FileDelete(POST_UPDATE_FLAG_PATH)
-
-        FileAppend(updatedVersion, POST_UPDATE_FLAG_PATH, "UTF-8-RAW")
-    } catch {
-    }
-}
-
-ConsumePostUpdateVersion() {
-    EnsurePostUpdateAckDir()
-
-    if !FileExist(POST_UPDATE_FLAG_PATH)
-        return ""
-
-    try {
-        version := Trim(FileRead(POST_UPDATE_FLAG_PATH), " `t`r`n")
-    } catch {
-        version := ""
-    }
-
-    try FileDelete(POST_UPDATE_FLAG_PATH)
-
-    return version
+    return GetUpdDialog(FULL_VER, remoteVersion)
 }
 
 ShowPendingPostUpdateDialog() {
@@ -140,7 +104,8 @@ ShowPendingPostUpdateDialog() {
     if (updatedVersion = "")
         return
 
-    GetPostUpdateDialog(updatedVersion)
+    if UPDATE["show_confirmation"]
+        GetPostUpdateDialog(updatedVersion)
 }
 
 [:: Reload()
