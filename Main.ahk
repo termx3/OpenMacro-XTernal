@@ -42,6 +42,7 @@ HotkeyManager.RegisterAll(SETTINGS)
 
 try {
     Initialize()
+    RecordSuccessfulUpdateLaunch()
 } catch as err {
     MsgBox(err.Message, "Startup Error")
     ExitApp(1)
