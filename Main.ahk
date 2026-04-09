@@ -49,6 +49,7 @@ try {
 }
 
 GetGui()
+ShowPendingPostUpdateDialog()
 
 Initialize() {
     global RBLX_PID, RBLX_BASE, ROD, Macro
@@ -105,6 +106,40 @@ RecordSuccessfulUpdateLaunch() {
         FileAppend(updatedVersion, POST_UPDATE_ACK_PATH, "UTF-8-RAW")
     } catch {
     }
+
+    try {
+        if FileExist(POST_UPDATE_FLAG_PATH)
+            FileDelete(POST_UPDATE_FLAG_PATH)
+
+        FileAppend(updatedVersion, POST_UPDATE_FLAG_PATH, "UTF-8-RAW")
+    } catch {
+    }
+}
+
+ConsumePostUpdateVersion() {
+    EnsurePostUpdateAckDir()
+
+    if !FileExist(POST_UPDATE_FLAG_PATH)
+        return ""
+
+    try {
+        version := Trim(FileRead(POST_UPDATE_FLAG_PATH), " `t`r`n")
+    } catch {
+        version := ""
+    }
+
+    try FileDelete(POST_UPDATE_FLAG_PATH)
+
+    return version
+}
+
+ShowPendingPostUpdateDialog() {
+    updatedVersion := ConsumePostUpdateVersion()
+
+    if (updatedVersion = "")
+        return
+
+    GetPostUpdateDialog(updatedVersion)
 }
 
 [:: Reload()
