@@ -78,4 +78,32 @@ Initialize() {
     SetTimer(MacroLoop, MAIN["update_rate"])
 }
 
+EnsurePostUpdateAckDir() {
+    if !DirExist(APPDATA_DIR)
+        DirCreate(APPDATA_DIR)
+}
+
+RecordSuccessfulUpdateLaunch() {
+    if (A_Args.Length < 2)
+        return
+
+    if (A_Args[1] != UPDATE_RELAUNCH_ARG)
+        return
+
+    updatedVersion := Trim(A_Args[2], " `t`r`n")
+
+    if (updatedVersion != FULL_VER)
+        return
+
+    EnsurePostUpdateAckDir()
+
+    try {
+        if FileExist(POST_UPDATE_ACK_PATH)
+            FileDelete(POST_UPDATE_ACK_PATH)
+
+        FileAppend(updatedVersion, POST_UPDATE_ACK_PATH, "UTF-8-RAW")
+    } catch {
+    }
+}
+
 [:: Reload()
