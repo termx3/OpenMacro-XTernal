@@ -33,6 +33,7 @@ You do not retain ownership rights that allow you to license or distribute the c
 #Include shared\Hotkeys.ahk
 #Include shared\Fish.ahk
 #Include library\DiscordBuilderAHK-0.0.1.1\DiscordBuilder.ahk
+#Include ui\Dialogs\PostUpdateDialog.ahk
 #Include ui\Gui.ahk
 
 global Macro := CreateFishingMacro()
