@@ -1,6 +1,6 @@
 /*
 OpenMacro XTernal
-Copyright © 2026 (@heldnote) on Discord. All rights reserved.
+Copyright © 2026 (@anorexc) on Discord. All rights reserved.
 
 This software is source available. You are granted a limited, non-exclusive, non-transferable, revocable license to:
 - Access and view the source code
@@ -20,13 +20,13 @@ licensed under the terms of this license and that yarn retains full rights to us
 You do not retain ownership rights that allow you to license or distribute the contribution independently in a way that conflicts with these terms.
 */
 
-
 #Requires AutoHotkey v2.0
 #SingleInstance Force
 #NoTrayIcon
 
 #Include library\JSON.ahk
 #Include shared\Constants.ahk
+#Include shared\Settings.ahk
 #Include shared\Process.ahk
 #Include shared\Read.ahk
 #Include shared\Memory.ahk
@@ -37,15 +37,6 @@ You do not retain ownership rights that allow you to license or distribute the c
 
 global Macro := CreateFishingMacro()
 global Controller := FishingController()
-
-if (ENV = "prod" && !A_IsAdmin) {
-    try {
-        Run("*RunAs " A_ScriptFullPath)
-    } catch as err {
-        MsgBox("Failed to request administrator privileges: " err.Message, "Admin Error")
-    }
-    ExitApp()
-}
 
 HotkeyManager.RegisterAll(SETTINGS)
 
@@ -60,6 +51,8 @@ GetGui()
 
 Initialize() {
     global RBLX_PID, RBLX_BASE, ROD, Macro
+
+    EnsureAppDataDirs()
 
     RBLX_PID := GetRobloxPID()
 
@@ -85,4 +78,4 @@ Initialize() {
     SetTimer(MacroLoop, MAIN["update_rate"])
 }
 
-[::Reload()
+[:: Reload()

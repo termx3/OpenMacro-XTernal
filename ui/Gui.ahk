@@ -1,8 +1,9 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 #Include Components\Border.ahk
 #Include Components\Button.ahk
 #Include Components\InfoPopup.ahk
 #Include Dialogs\AddMutationDialog.ahk
+#Include Dialogs\ConfigDialogs.ahk
 
 GetGui() {
     global FULL_VER, ROBLOX_VER, RBLX_BASE, RBLX_PID, ENV, ROD, APPEARANCE
@@ -131,7 +132,7 @@ GetGui() {
     ProgressText := mg.AddText("x20 y390 w150 h20 c" TextColor, "Progress: ---")
     ProgressText.SetFont("s10")
 
-    mg.AddGroupBox("x10 y425 w380 h90 c" Accent, "Info").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y425 w380 h90 c" TextColor, "Info").SetFont("s9 bold")
 
     mg.AddText("x20 y445 w150 h20 c" TextColor, "Start Macro: " HOTKEYS["start_macro"]).SetFont("s10")
     mg.AddText("x20 y465 w150 h20 c" TextColor, "Fix Roblox: " HOTKEYS["fix_roblox"]).SetFont("s10")
@@ -139,6 +140,52 @@ GetGui() {
     ChangeHotkeysBtn := mg.AddText("x320 y488 w65 h20 c" Accent, "Change 🡒")
     ChangeHotkeysBtn.SetFont("s10 underline")
     ChangeHotkeysBtn.OnEvent("Click", (*) => MainTab.Choose(3))
+
+    mg.AddGroupBox("x10 y520 w380 h70 c" TextColor, "Config").SetFont("s9 bold")
+
+    configList := ListConfigs()
+    ddlItems := configList.Length > 0 ? configList : ["No configs"]
+    ConfigDDL := mg.AddDDL("x20 y540 w160 h200", ddlItems)
+    lastConfig := SETTINGS.Has("last_config") ? SETTINGS["last_config"] : ""
+    if (lastConfig != "" && configList.Length > 0) {
+        try ControlChooseString(lastConfig, ConfigDDL)
+        catch
+            ConfigDDL.Choose(1)
+    } else {
+        ConfigDDL.Choose(1)
+    }
+
+    LoadConfigBtn := button(mg, "Load", 190, 540, {
+        w: 42,
+        h: 22,
+        bg: Accent
+    })
+    LoadConfigBtn.OnEvent("Click", (*) => OnLoadConfig(ConfigDDL))
+
+    SaveConfigBtn := button(mg, "Save", 237, 540, {
+        w: 42,
+        h: 22,
+        bg: Accent
+    })
+    SaveConfigBtn.OnEvent("Click", (*) => OnSaveConfig(ConfigDDL))
+
+    NewConfigBtn := button(mg, "New", 284, 540, {
+        w: 42,
+        h: 22,
+        bg: Accent
+    })
+    NewConfigBtn.OnEvent("Click", (*) => OnNewConfig(ConfigDDL))
+
+    DeleteConfigBtn := button(mg, "Del", 331, 540, {
+        w: 42,
+        h: 22,
+        bg: Accent
+    })
+    DeleteConfigBtn.OnEvent("Click", (*) => OnDeleteConfig(ConfigDDL))
+    
+    OpenConfigsBtn := mg.AddText("x20 y565 w80 h20 c" Accent, "Open folder")
+    OpenConfigsBtn.SetFont("underline")
+    OpenConfigsBtn.OnEvent("Click", (*) => Run("explorer.exe `"" CONFIGS_DIR "`""))
 
     MainTab.UseTab(2)
     mg.AddGroupBox("x10 y30 w380 h120 c" TextColor, "Settings").SetFont("s9 bold")
@@ -220,21 +267,38 @@ GetGui() {
     AppearanceHeader.SetFont("s15")
     border(mg, 10, 415, 380, 1)
 
-    mg.AddText("x10 y425 w100 h20 c" TextColor, "Accent color").SetFont("s10")
-    AccentInput := mg.AddEdit("x260 y424 w80 h20", APPEARANCE["accent_color"])
-    AccentSwatch := mg.AddText("x350 y424 w20 h20 +Border Background" APPEARANCE["accent_color"], "")
+    mg.AddText("x10 y422 w80 h20 c" TextColor, "Theme").SetFont("s10")
+    builtInThemes := GetBuiltInThemes()
+    themeNames := []
+    for name, _ in builtInThemes
+        themeNames.Push(name)
+    themeNames.Push("Custom")
 
-    mg.AddText("x10 y455 w100 h20 c" TextColor, "Background").SetFont("s10")
-    BgInput := mg.AddEdit("x260 y454 w80 h20", APPEARANCE["bg_color"])
-    BgSwatch := mg.AddText("x350 y454 w20 h20 +Border Background" APPEARANCE["bg_color"], "")
+    ThemeDDL := mg.AddDDL("x260 y420 w110 h200", themeNames)
+    lastTheme := SETTINGS.Has("last_theme") ? SETTINGS["last_theme"] : "Custom"
+    if (lastTheme != "") {
+        try ControlChooseString(lastTheme, ThemeDDL)
+        catch
+            ThemeDDL.Choose(themeNames.Length)
+    } else {
+        ThemeDDL.Choose(themeNames.Length)
+    }
 
-    mg.AddText("x10 y485 w100 h20 c" TextColor, "Text color").SetFont("s10")
-    TextInput := mg.AddEdit("x260 y484 w80 h20", APPEARANCE["text_color"])
-    TextSwatch := mg.AddText("x350 y484 w20 h20 +Border Background" APPEARANCE["text_color"], "")
+    mg.AddText("x10 y452 w100 h20 c" TextColor, "Accent color").SetFont("s10")
+    AccentInput := mg.AddEdit("x260 y451 w80 h20", APPEARANCE["accent_color"])
+    AccentSwatch := mg.AddText("x350 y451 w20 h20 +Border Background" APPEARANCE["accent_color"], "")
 
-    mg.AddText("x10 y515 w100 h20 c" TextColor, "Border color").SetFont("s10")
-    BorderInput := mg.AddEdit("x260 y514 w80 h20", APPEARANCE["border_color"])
-    BorderSwatch := mg.AddText("x350 y514 w20 h20 +Border Background" APPEARANCE["border_color"], "")
+    mg.AddText("x10 y479 w100 h20 c" TextColor, "Background").SetFont("s10")
+    BgInput := mg.AddEdit("x260 y478 w80 h20", APPEARANCE["bg_color"])
+    BgSwatch := mg.AddText("x350 y478 w20 h20 +Border Background" APPEARANCE["bg_color"], "")
+
+    mg.AddText("x10 y506 w100 h20 c" TextColor, "Text color").SetFont("s10")
+    TextInput := mg.AddEdit("x260 y505 w80 h20", APPEARANCE["text_color"])
+    TextSwatch := mg.AddText("x350 y505 w20 h20 +Border Background" APPEARANCE["text_color"], "")
+
+    mg.AddText("x10 y533 w100 h20 c" TextColor, "Border color").SetFont("s10")
+    BorderInput := mg.AddEdit("x260 y532 w80 h20", APPEARANCE["border_color"])
+    BorderSwatch := mg.AddText("x350 y532 w20 h20 +Border Background" APPEARANCE["border_color"], "")
     appearanceFields := [
         {key: "accent_color", ctrl: AccentInput, swatch: AccentSwatch, label: "Accent color"},
         {key: "bg_color", ctrl: BgInput, swatch: BgSwatch, label: "Background"},
@@ -242,14 +306,16 @@ GetGui() {
         {key: "border_color", ctrl: BorderInput, swatch: BorderSwatch, label: "Border color"}
     ]
 
-    ApplyAppearanceBtn := button(mg, "Apply", 290, 550, {
+    ThemeDDL.OnEvent("Change", (*) => ApplyThemePreset(ThemeDDL, builtInThemes, appearanceFields))
+
+    ApplyAppearanceBtn := button(mg, "Apply", 290, 562, {
         w: 80,
         h: 25,
         bg: Accent
     })
-    ApplyAppearanceBtn.OnEvent("Click", (*) => ApplyAppearanceChanges(appearanceFields))
+    ApplyAppearanceBtn.OnEvent("Click", (*) => ApplyAppearanceChanges(appearanceFields, ThemeDDL))
 
-    mg.AddText("x10 y545 w240 h20 c" SubColor, "Press Apply to save and reload.")
+    mg.AddText("x10 y565 w240 h20 c" SubColor, "Press Apply to save and reload.")
 
 
     MainTab.UseTab(4)
@@ -280,7 +346,7 @@ GetGui() {
 
     mg.Show("w400 h600 y100 x1100")
     UpdateMacroStatus("OFF", "---", "---")
-    MainTab.Choose(3)
+    MainTab.Choose(1)
     lastAllowedTab := MainTab.Value
 
     mg.OnEvent("Close", (*) => ExitApp())
@@ -309,7 +375,35 @@ GetGui() {
     }
 }
 
-ApplyAppearanceChanges(appearanceFields) {
+ApplyThemePreset(ddl, themes, appearanceFields) {
+    global SETTINGS, APPEARANCE
+    themeName := ddl.Text
+
+    if (themeName = "Custom") {
+        customTheme := SETTINGS.Has("custom_theme") ? SETTINGS["custom_theme"] : APPEARANCE
+        for field in appearanceFields {
+            if (customTheme.Has(field.key)) {
+                field.ctrl.Value := customTheme[field.key]
+                field.swatch.Opt("Background" customTheme[field.key])
+            }
+        }
+        return
+    }
+
+    if (!themes.Has(themeName))
+        return
+
+    theme := themes[themeName]
+
+    for field in appearanceFields {
+        if (theme.Has(field.key)) {
+            field.ctrl.Value := theme[field.key]
+            field.swatch.Opt("Background" theme[field.key])
+        }
+    }
+}
+
+ApplyAppearanceChanges(appearanceFields, themeDDL := "") {
     global SETTINGS, APPEARANCE
 
     pendingColors := Map()
@@ -341,6 +435,14 @@ ApplyAppearanceChanges(appearanceFields) {
     for key, color in pendingColors {
         APPEARANCE[key] := color
         SETTINGS["appearance"][key] := color
+    }
+
+    if (themeDDL != "") {
+        SETTINGS["last_theme"] := themeDDL.Text
+        if (themeDDL.Text = "Custom") {
+            for key, color in pendingColors
+                SETTINGS["custom_theme"][key] := color
+        }
     }
 
     SaveSettingsFile()
@@ -405,63 +507,70 @@ UpdateHotkey(name, ctrl) {
     TrayTip("Saved Hotkey locally.", "Settings", "Mute")
 }
 
-SaveSettingsFile() {
-    global SETTINGS
+OnLoadConfig(ddl) {
+    if (ddl.Text = "No configs")
+        return
 
-    try {
-        file := FileOpen(A_ScriptDir "\settings\settings.json", "w")
-        file.Write(JSON.stringify(SETTINGS, 4))
-        file.Close()
-    } catch as err {
-        MsgBox("Failed to save settings: " err.Message, "Settings Error")
-    }
+    LoadConfig(ddl.Text)
 }
 
-FormatSettingValue(value, isInteger := false, decimals := 2) {
-    if (isInteger)
-        return Round(value)
+OnSaveConfig(ddl) {
+    if (ddl.Text = "No configs")
+        return
 
-    return Format("{:." decimals "f}", value)
+    SaveConfig(ddl.Text)
+    ShowConfigSavedDialog(ddl.Text)
 }
 
-ValidateAndSaveMain(key, ctrl, minValue, maxValue, isInteger := false, decimals := 2) {
-    global SETTINGS, MAIN
+OnNewConfig(ddl) {
+    name := Trim(ShowConfigNameInput())
 
-    oldValue := MAIN[key]
-    rawValue := Trim(ctrl.Value)
-
-    if (rawValue = "") {
-        ctrl.Value := FormatSettingValue(oldValue, isInteger, decimals)
-        MsgBox("This field cannot be empty.", "Invalid Value")
+    if (name = "")
         return
+
+    if (ddl.Text != "No configs") {
+        existingConfigs := ListConfigs()
+        for cfg in existingConfigs {
+            if (cfg = name) {
+                ShowConfigAlert("Duplicate Name", "A config named '" name "' already exists.")
+                return
+            }
+        }
     }
 
-    if !RegExMatch(rawValue, "^-?(?:\d+|\d*\.\d+)$") {
-        ctrl.Value := FormatSettingValue(oldValue, isInteger, decimals)
-        MsgBox("Please enter a valid number.", "Invalid Value")
-        return
+    SaveConfig(name)
+
+    if (ddl.Text = "No configs") {
+        ddl.Delete()
+        ddl.Add([name])
+    } else {
+        ddl.Add([name])
     }
 
-    numericValue := rawValue + 0
+    ControlChooseString(name, ddl)
+}
 
-    if (isInteger)
-        numericValue := Round(numericValue)
-
-    if (numericValue < minValue || numericValue > maxValue) {
-        ctrl.Value := FormatSettingValue(oldValue, isInteger, decimals)
-        MsgBox("Value must be between " minValue " and " maxValue ".", "Invalid Range")
+OnDeleteConfig(ddl) {
+    if (ddl.Text = "No configs")
         return
+
+    name := ddl.Text
+
+    if (!ShowConfigConfirmDialog(name))
+        return
+
+    DeleteConfig(name)
+
+    ddl.Delete()
+    remaining := ListConfigs()
+
+    if (remaining.Length = 0) {
+        ddl.Add(["No configs"])
+        ddl.Choose(1)
+    } else {
+        ddl.Add(remaining)
+        ddl.Choose(1)
     }
-
-    MAIN[key] := numericValue
-    SETTINGS["main"][key] := numericValue
-
-    ctrl.Value := FormatSettingValue(numericValue, isInteger, decimals)
-
-    if (key = "update_rate")
-        SetTimer(MacroLoop, MAIN["update_rate"])
-
-    SaveSettingsFile()
 }
 
 DimHex(hex, factor) {
