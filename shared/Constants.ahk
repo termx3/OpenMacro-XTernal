@@ -13,7 +13,9 @@ OFFSETS_PATH    := "settings\offsets.json"
 APPDATA_DIR   := EnvGet("APPDATA") "\OpenMacro\XTernal"
 CONFIGS_DIR   := APPDATA_DIR "\configs"
 SETTINGS_PATH := APPDATA_DIR "\settings.json"
+
 POST_UPDATE_ACK_PATH := APPDATA_DIR "\post-update-ack.txt"
+POST_UPDATE_FLAG_PATH := APPDATA_DIR "\post-update.txt"
 UPDATE_RELAUNCH_ARG  := "--post-update"
 
 DC_INV_LIN      := ""
