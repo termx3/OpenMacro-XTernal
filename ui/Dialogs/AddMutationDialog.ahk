@@ -6,39 +6,29 @@
 
 GetAddMutationDialog()
 {
-    global APPEARANCE
-
     result := ""
-    Accent := APPEARANCE["accent_color"]
-    BgColor := APPEARANCE["bg_color"]
-    TextColor := APPEARANCE["text_color"]
-    BorderColor := APPEARANCE["border_color"]
 
     g := Gui("AlwaysOnTop +Border")
-    g.BackColor := "0x" BgColor
-    g.SetFont(, "Segoe UI")
+    g.BackColor := 0x171717
 
-    g.AddText("x40 y10 w400 h50 c" TextColor, "Add Mutation to DDL").SetFont("s15")
+    g.AddText("x40 y10 w400 h50 cWhite", "Add Mutation to DDL").SetFont("s15")
     g.AddPicture("x10 y12 w23 h23 Icon77", "imageres.dll")
-    Border(g, 10, 45, 380, 1, BorderColor)
+    Border(g, 10, 45, 380, 1, 646464)
 
-    g.AddText("x10 y63 w125 h20 c" TextColor, "Mutation Name").SetFont("s12")
+    g.AddText("x10 y63 w125 h20 cWhite", "Mutation Name").SetFont("s12")
 
     Mutation := g.AddEdit("x190 y60 w200 h30 Limit24 -VScroll vMutation")
     Mutation.SetFont("s11")
 
     addBtn := button(g, "Add", 190, 110, {
         h: 30,
-        w: 95,
-        bg: Accent,
-        textColor: TextColor
+        w: 95
     })
 
     cancelBtn := button(g, "Cancel", 295, 110, {
         h: 30,
         w: 95,
-        bg: BgColor,
-        textColor: TextColor
+        bg: 171717
     })
 
     addBtn.OnEvent("Click", AddClicked)

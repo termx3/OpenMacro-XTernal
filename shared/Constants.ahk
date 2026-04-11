@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.0.6"
+FULL_VER        := "v0.0.4"
 ROBLOX_VER      := "version-26c90be22e0d4758"
 GITHUB_OWNER    := "termx3"
 GITHUB_REPO     := "OpenMacro-XTernal"
@@ -21,6 +21,7 @@ SETTINGS_PATH := APPDATA_DIR "\settings.json"
 POST_UPDATE_FLAG_PATH := APPDATA_DIR "\post-update.txt"
 POST_UPDATE_ACK_PATH  := APPDATA_DIR "\post-update-ack.txt"
 
+DC_INV_LIN      := ""
 ROD           := ""
 SETTINGS        := LoadSettings()
 
