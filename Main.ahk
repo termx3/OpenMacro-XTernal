@@ -54,8 +54,8 @@ try {
     ExitApp(1)
 }
 
-GetGui()
 ShowPendingPostUpdateDialog()
+GetGui()
 
 Initialize() {
     global RBLX_PID, RBLX_BASE, ROD, Macro

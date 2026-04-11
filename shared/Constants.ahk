@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.0.5"
+FULL_VER        := "v0.0.6"
 ROBLOX_VER      := "version-26c90be22e0d4758"
 GITHUB_OWNER    := "termx3"
 GITHUB_REPO     := "OpenMacro-XTernal"
