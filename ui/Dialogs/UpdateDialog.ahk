@@ -5,22 +5,31 @@
 
 
 GetUpdDialog(currentVer, updatedVer) {
+    global APPEARANCE
+
     handoffStarted := false
+    isDownloading := false
+    dialogShowOpts := "w400 h300"
+    Accent := APPEARANCE["accent_color"]
+    BgColor := APPEARANCE["bg_color"]
+    TextColor := APPEARANCE["text_color"]
+    BorderColor := APPEARANCE["border_color"]
 
     mg := Gui("AlwaysOnTop +Border")
-    mg.BackColor := 0x171717
+    mg.BackColor := "0x" BgColor
     mg.Title := "Update Available"
+    mg.SetFont(, "Segoe UI")
 
-    mg.AddText("x0 y280 w400 h1 +Background0x646464", "")
-    Border(mg, 10, 40, 380, 1, 646464)
-    mg.AddText("x5 y282 w200 h20 c646464", "Client Version: " currentVer).SetFont("s10 italic")
-    mg.AddText("x345 y282 w50 h20 c646464", "XTernal").SetFont("s10 italic")
+    mg.AddText("x0 y280 w400 h1 +Background" BorderColor, "")
+    Border(mg, 10, 40, 380, 1, BorderColor)
+    mg.AddText("x5 y282 w200 h20 c" BorderColor, "Client Version: " currentVer).SetFont("s10 italic")
+    mg.AddText("x345 y282 w50 h20 c" BorderColor, "XTernal").SetFont("s10 italic")
 
-    mg.AddText("x40 y10 w300 h30 cWhite", "Update Available (" updatedVer ")").SetFont("s15")
+    mg.AddText("x40 y10 w300 h30 c" TextColor, "Update Available (" updatedVer ")").SetFont("s15")
     mg.AddPic("x10 y10 w26 h26 icon176", "imageres.dll")
-    mg.AddText("x10 y55 w380 h200 cWhite", "A newer version of XTernal is available on GitHub.`n`nThe updater installs the exact files published for the matching version tag, then restarts the macro once the update is staged successfully.").SetFont("s10")
+    mg.AddText("x10 y55 w380 h200 c" TextColor, "A newer version of XTernal is available on GitHub.`n`nThe updater installs the exact files published for the matching version tag, then restarts the macro once the update is staged successfully.").SetFont("s10")
 
-    LearnMore := mg.AddText("x90 y119 w90 h20 c646464", "Learn More")
+    LearnMore := mg.AddText("x90 y122 w90 h20 c" Accent, "Learn More")
     LearnMore.SetFont("s10 italic underline")
     LearnMore.OnEvent("Click", (*) =>
         InfoPopup.Show(
@@ -32,13 +41,16 @@ GetUpdDialog(currentVer, updatedVer) {
 
     DownloadBtn := button(mg, "Download", 10, 240, {
         w: 100,
-        h: 30
+        h: 30,
+        bg: Accent,
+        textColor: TextColor
     })
 
     LaterBtn := button(mg, "Later", 120, 240, {
         w: 100,
         h: 30,
-        bg: 171717
+        bg: BgColor,
+        textColor: TextColor
     })
 
     DownloadBtn.OnEvent("Click", DownloadClicked)
@@ -46,16 +58,28 @@ GetUpdDialog(currentVer, updatedVer) {
     mg.OnEvent("Close", CloseDialog)
     mg.OnEvent("Escape", CloseDialog)
 
-    mg.Show("w400 h300")
+    mg.Show(dialogShowOpts)
     WinWaitClose(mg.Hwnd)
     return handoffStarted
 
     DownloadClicked(*) {
-        if !BeginUpdateInstall(updatedVer, true)
+        if isDownloading
             return
 
-        handoffStarted := true
-        mg.Destroy()
+        isDownloading := true
+        mg.Hide()
+        SetTimer(StartDownloadAfterHide, -10)
+    }
+
+    StartDownloadAfterHide() {
+        if BeginUpdateInstall(updatedVer, true) {
+            handoffStarted := true
+            mg.Destroy()
+            return
+        }
+
+        isDownloading := false
+        mg.Show(dialogShowOpts)
     }
 
     CloseDialog(*) {

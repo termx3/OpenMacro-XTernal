@@ -54,8 +54,8 @@ try {
     ExitApp(1)
 }
 
-GetGui()
 ShowPendingPostUpdateDialog()
+GetGui()
 
 Initialize() {
     global RBLX_PID, RBLX_BASE, ROD, Macro
@@ -63,10 +63,6 @@ Initialize() {
     EnsureAppDataDirs()
 
     RBLX_PID := GetRobloxPID()
-
-    if (!RBLX_PID && ENV = "prod") {
-        throw Error("Roblox instance not found")
-    }
 
     if (RBLX_PID) {
         RBLX_BASE := GetProcessBase(RBLX_PID)

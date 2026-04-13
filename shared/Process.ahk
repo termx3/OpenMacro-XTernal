@@ -36,3 +36,44 @@ GetProcessBase(pid) {
 
     return NumGet(hMods, 0, "UPtr")
 }
+
+GetRunningRobloxVersionHash(pid) {
+    static PROCESS_QUERY_LIMITED_INFORMATION := 0x1000
+    static MAX_PATH_CHARS := 1024
+
+    hProc := DllCall("OpenProcess", "UInt", PROCESS_QUERY_LIMITED_INFORMATION, "Int", 0, "UInt", pid, "Ptr")
+    if !hProc
+        throw Error("OpenProcess failed (pid=" pid ", error=" A_LastError ")")
+
+    try {
+        buf := Buffer(MAX_PATH_CHARS * 2, 0)  ; UTF-16: 2 bytes per char
+        size := MAX_PATH_CHARS
+        if !DllCall("QueryFullProcessImageNameW", "Ptr", hProc, "UInt", 0, "Ptr", buf.Ptr, "UInt*", &size)
+            throw Error("QueryFullProcessImageNameW failed (error=" A_LastError ")")
+    } finally {
+        DllCall("CloseHandle", "Ptr", hProc)
+    }
+
+    exePath := StrGet(buf, size, "UTF-16")
+    if RegExMatch(exePath, "(version-[a-f0-9]+)", &m)
+        return m[1]
+
+    throw Error("Version hash not found in path: " exePath)
+}
+
+GetLatestRobloxVersionHash() {
+    static URL := "https://clientsettingscdn.roblox.com/v1/client-version/WindowsPlayer"
+
+    req := CreateHttpRequest()
+    req.Open("GET", URL, false)
+    req.Send()
+
+    if req.Status != 200
+        throw Error("Version fetch failed: HTTP " req.Status)
+
+    json := req.ResponseText
+    if RegExMatch(json, '"clientVersionUpload"\s*:\s*"(version-[a-f0-9]+)"', &m)
+        return m[1]
+
+    throw Error("clientVersionUpload not found in response")
+}

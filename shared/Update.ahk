@@ -1,11 +1,57 @@
 #Requires AutoHotkey v2.0
 
+_ReadUpdateCheckCache() {
+    global UPDATE_CHECK_CACHE_PATH, UPDATE_CHECK_TTL
+
+    if !FileExist(UPDATE_CHECK_CACHE_PATH)
+        return ""
+
+    try {
+        cache := JSON.parse(FileRead(UPDATE_CHECK_CACHE_PATH))
+
+        if (!cache.Has("checked_at") || !cache.Has("fetched_version"))
+            return ""
+
+        age := DateDiff(A_Now, cache["checked_at"], "Seconds")
+        if (age < 0 || age > UPDATE_CHECK_TTL)
+            return ""
+
+        v := Trim(cache["fetched_version"], " `t`r`n")
+        if !IsValidVersionString(v)
+            return ""
+
+        return v
+    } catch {
+        return ""
+    }
+}
+
+_WriteUpdateCheckCache(fetchedVersion) {
+    global APPDATA_DIR, UPDATE_CHECK_CACHE_PATH
+
+    if !DirExist(APPDATA_DIR)
+        DirCreate(APPDATA_DIR)
+
+    try {
+        cache := Map("checked_at", A_Now, "fetched_version", fetchedVersion)
+        file  := FileOpen(UPDATE_CHECK_CACHE_PATH, "w")
+        file.Write(JSON.stringify(cache, 4))
+        file.Close()
+    } catch {
+    }
+}
+
 CheckForAvailableUpdate() {
     if (GetUpdaterBlockReason() != "")
         return ""
 
     try {
-        remoteVersion := Trim(FetchTextUrl(VERSION_URL), " `t`r`n")
+        remoteVersion := _ReadUpdateCheckCache()
+        if (remoteVersion = "") {
+            remoteVersion := Trim(FetchTextUrl(VERSION_URL), " `t`r`n")
+            if IsValidVersionString(remoteVersion)
+                _WriteUpdateCheckCache(remoteVersion)
+        }
 
         if !IsValidVersionString(remoteVersion)
             return ""
@@ -72,7 +118,7 @@ BeginUpdateInstall(version, showErrors := false) {
 }
 
 RecordSuccessfulUpdateLaunch() {
-    global UPDATE
+    global UPDATE, SETTINGS
 
     if (A_Args.Length < 2)
         return
@@ -97,6 +143,9 @@ RecordSuccessfulUpdateLaunch() {
         FileAppend(updatedVersion, POST_UPDATE_ACK_PATH, "UTF-8-RAW")
     } catch {
     }
+
+    SETTINGS["just_updated"] := true
+    SaveSettingsFile()
 
     if !UPDATE["show_confirmation"]
         return
@@ -386,16 +435,16 @@ CreateUpdateHelper(version, tempRoot, stageRoot) {
 
     lines.Push("@echo off")
     lines.Push("setlocal")
-    lines.Push("set " q "SOURCE_PID=" currentPid q)
-    lines.Push("set " q "STAGE_DIR=" EscapeBatchValue(stageRoot) q)
-    lines.Push("set " q "INSTALL_DIR=" EscapeBatchValue(A_ScriptDir) q)
-    lines.Push("set " q "TEMP_ROOT=" EscapeBatchValue(tempRoot) q)
-    lines.Push("set " q "BACKUP_DIR=%TEMP_ROOT%\backup" q)
-    lines.Push("set " q "RUNTIME_PATH=" EscapeBatchValue(A_AhkPath) q)
-    lines.Push("set " q "MAIN_SCRIPT=" EscapeBatchValue(mainScriptPath) q)
-    lines.Push("set " q "UPDATED_VERSION=" EscapeBatchValue(version) q)
-    lines.Push("set " q "ACK_PATH=" EscapeBatchValue(POST_UPDATE_ACK_PATH) q)
-    lines.Push("set " q "CLEANUP_TEMP=1" q)
+    lines.Push("set SOURCE_PID=" currentPid)
+    lines.Push("set STAGE_DIR=" EscapeBatchValue(stageRoot))
+    lines.Push("set INSTALL_DIR=" EscapeBatchValue(A_ScriptDir))
+    lines.Push("set TEMP_ROOT=" EscapeBatchValue(tempRoot))
+    lines.Push("set BACKUP_DIR=" EscapeBatchValue(tempRoot "\backup"))
+    lines.Push("set RUNTIME_PATH=" EscapeBatchValue(A_AhkPath))
+    lines.Push("set MAIN_SCRIPT=" EscapeBatchValue(mainScriptPath))
+    lines.Push("set UPDATED_VERSION=" EscapeBatchValue(version))
+    lines.Push("set ACK_PATH=" EscapeBatchValue(POST_UPDATE_ACK_PATH))
+    lines.Push("set CLEANUP_TEMP=1")
 
     lines.Push("for /L %%I in (1,1,60) do (")
     lines.Push("    tasklist /FI " q "PID eq %SOURCE_PID%" q " 2>nul | find /I " q "%SOURCE_PID%" q " >nul")
@@ -409,11 +458,11 @@ CreateUpdateHelper(version, tempRoot, stageRoot) {
     lines.Push("if exist " q "%BACKUP_DIR%" q " rmdir /s /q " q "%BACKUP_DIR%" q)
     lines.Push("mkdir " q "%BACKUP_DIR%" q " >nul 2>nul")
     lines.Push("robocopy " q "%INSTALL_DIR%" q " " q "%BACKUP_DIR%" q " /MIR /R:2 /W:1 /NFL /NDL /NJH /NJS /NC /NS /NP >nul")
-    lines.Push("set " q "BACKUP_EXIT=%ERRORLEVEL%" q)
+    lines.Push("set BACKUP_EXIT=%ERRORLEVEL%")
     lines.Push("if %BACKUP_EXIT% GEQ 8 goto relaunch_old")
 
     lines.Push("robocopy " q "%STAGE_DIR%" q " " q "%INSTALL_DIR%" q " /MIR /R:2 /W:1 /NFL /NDL /NJH /NJS /NC /NS /NP >nul")
-    lines.Push("set " q "COPY_EXIT=%ERRORLEVEL%" q)
+    lines.Push("set COPY_EXIT=%ERRORLEVEL%")
     lines.Push("if %COPY_EXIT% GEQ 8 goto restore_backup")
 
     lines.Push("if not exist " q "%INSTALL_DIR%\Main.ahk" q " goto restore_backup")
@@ -440,8 +489,8 @@ CreateUpdateHelper(version, tempRoot, stageRoot) {
 
     lines.Push(":restore_backup")
     lines.Push("robocopy " q "%BACKUP_DIR%" q " " q "%INSTALL_DIR%" q " /MIR /R:2 /W:1 /NFL /NDL /NJH /NJS /NC /NS /NP >nul")
-    lines.Push("set " q "RESTORE_EXIT=%ERRORLEVEL%" q)
-    lines.Push("if %RESTORE_EXIT% GEQ 8 set " q "CLEANUP_TEMP=0" q)
+    lines.Push("set RESTORE_EXIT=%ERRORLEVEL%")
+    lines.Push("if %RESTORE_EXIT% GEQ 8 set CLEANUP_TEMP=0")
     lines.Push("if %RESTORE_EXIT% GEQ 8 goto cleanup")
     lines.Push("goto relaunch_old")
 
@@ -478,7 +527,19 @@ CreateUpdateHelper(version, tempRoot, stageRoot) {
 }
 
 EscapeBatchValue(value) {
-    return StrReplace(value, "%", "%%")
+    ; Caret-escape cmd metacharacters so the result is safe to splice into an
+    ; unquoted `set VAR=...` assignment and into double-quoted arguments. ^ is
+    ; escaped first so carets we introduce below are not double-processed.
+    value := StrReplace(value, "^", "^^")
+    value := StrReplace(value, "&", "^&")
+    value := StrReplace(value, "|", "^|")
+    value := StrReplace(value, "<", "^<")
+    value := StrReplace(value, ">", "^>")
+    value := StrReplace(value, "(", "^(")
+    value := StrReplace(value, ")", "^)")
+    value := StrReplace(value, "!", "^!")
+    value := StrReplace(value, "%", "%%")
+    return value
 }
 
 LaunchUpdateHelper(helperPath) {

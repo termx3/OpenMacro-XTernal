@@ -256,7 +256,7 @@ GetGui() {
     mg.AddText("x50 y279 w250 h25 c646464", "Change the hotkey with which you attempt fixes to roblox related issues.")
     FixRbxHelpBtn := mg.AddText("x125 y262 w100 h20 c" Accent, "Learn More")
     FixRbxHelpBtn.SetFont("s9 underline")
-    FixRbxHelpBtn.OnEvent("Click", (*) => InfoPopup.Show("Roblox fixes", "XTernal attempts to resize && relocate roblox to a specific position and size to reduce computing power while runtime"))
+    FixRbxHelpBtn.OnEvent("Click", (*) => InfoPopup.Show("Fix Roblox", "Re-attaches XTernal to the running Roblox process and reloads memory offsets. Also checks whether the running Roblox version matches the latest release — if they differ, offsets may be out of date and the macro could behave incorrectly."))
 
     ReloadKey := mg.AddHotkey("x10 y320 w30 h20", SETTINGS["hotkeys"]["reload"])
     ReloadKey.OnEvent("Change", (ctrl, *) => UpdateHotkey("reload", ctrl))
@@ -315,20 +315,27 @@ GetGui() {
     })
     ApplyAppearanceBtn.OnEvent("Click", (*) => ApplyAppearanceChanges(appearanceFields, ThemeDDL))
 
+    OpenSettingsBtn := mg.AddText("x330 y27 w80 h16 c" Accent, "Open folder")
+    OpenSettingsBtn.SetFont("underline")
+    OpenSettingsBtn.OnEvent("Click", (*) => Run("explorer.exe `"" APPDATA_DIR "`""))
+
     mg.AddText("x10 y565 w240 h20 c" SubColor, "Press Apply to save and reload.")
 
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 8, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 13, 2026").SetFont("s12 bold")
 
         mg.AddText("x15 y70 w300 h100 c" TextColor, "Latest Changes").SetFont("s13 bold")
-        mg.AddText("x15 y95 w280 h80 c" TextColor, 
-            "• Added UI color and appearance customization`n"
-            . "• Began work on auto-appraisal`n"
-            . "• Locked the Appraisal tab while development continues`n"
-            . "• Updated for Roblox " ROBLOX_VER)
-            .SetFont("s11")
+        mg.AddText("x15 y95 w370 h480 c" TextColor,
+            "• Fix Roblox (F2) now checks running Roblox version against latest before re-attaching — warns if offsets may be outdated`n`n"
+            . "• GitHub update check is now cached for 5 minutes — prevents repeated network requests on frequent reloads`n`n"
+            . "• Batch updater escape logic hardened to handle all cmd metacharacters`n`n"
+            . "• Settings tab now includes an Open Folder button to access the XTernal AppData directory`n`n"
+            . "• All dialogs (update, post-update, add mutation) now respect the active appearance theme`n`n"
+            . "• Update dialog no longer allows double-clicking Download; install is deferred until dialog hides cleanly`n`n"
+            . "• Post-update dialog now blocks until dismissed")
+            .SetFont("s10")
 
     MainTab.UseTab(5)
     mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
@@ -348,6 +355,12 @@ GetGui() {
     UpdateMacroStatus("OFF", "---", "---")
     MainTab.Choose(1)
     lastAllowedTab := MainTab.Value
+
+    if (SETTINGS.Has("just_updated") && SETTINGS["just_updated"]) {
+        SETTINGS["just_updated"] := false
+        SaveSettingsFile()
+        MainTab.Choose(4)
+    }
 
     mg.OnEvent("Close", (*) => ExitApp())
 

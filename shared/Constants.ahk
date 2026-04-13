@@ -1,12 +1,13 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.0.5"
+FULL_VER        := "v0.0.6"
 ROBLOX_VER      := "version-26c90be22e0d4758"
-GITHUB_OWNER    := "termx3"
-GITHUB_REPO     := "OpenMacro-XTernal"
-VERSION_URL     := "https://raw.githubusercontent.com/" GITHUB_OWNER "/" GITHUB_REPO "/main/version.txt"
-TAG_ZIP_BASE_URL := "https://github.com/" GITHUB_OWNER "/" GITHUB_REPO "/archive/refs/tags/"
+GITHUB_OWNER        := "termx3"
+GITHUB_REPO         := "OpenMacro-XTernal"
+; GITHUB_REPO       := "Canary-OpenMacro-XTernal" ; Canary channel
+VERSION_URL         := "https://raw.githubusercontent.com/" GITHUB_OWNER "/" GITHUB_REPO "/main/version.txt"
+TAG_ZIP_BASE_URL    := "https://github.com/" GITHUB_OWNER "/" GITHUB_REPO "/archive/refs/tags/"
 UPDATE_RELAUNCH_ARG := "--post-update"
 ROBLOX_INSTANCE := "RobloxPlayerBeta.exe"
 H_PROCESS       := 0
@@ -18,10 +19,11 @@ OFFSETS_PATH    := A_ScriptDir "\settings\offsets.json"
 APPDATA_DIR   := EnvGet("APPDATA") "\OpenMacro\XTernal"
 CONFIGS_DIR   := APPDATA_DIR "\configs"
 SETTINGS_PATH := APPDATA_DIR "\settings.json"
-POST_UPDATE_FLAG_PATH := APPDATA_DIR "\post-update.txt"
-POST_UPDATE_ACK_PATH  := APPDATA_DIR "\post-update-ack.txt"
+POST_UPDATE_FLAG_PATH   := APPDATA_DIR "\post-update.txt"
+POST_UPDATE_ACK_PATH    := APPDATA_DIR "\post-update-ack.txt"
+UPDATE_CHECK_CACHE_PATH := APPDATA_DIR "\update-check-cache.json"
+UPDATE_CHECK_TTL        := 300
 
-DC_INV_LIN      := ""
 ROD           := ""
 SETTINGS        := LoadSettings()
 

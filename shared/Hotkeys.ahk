@@ -22,6 +22,16 @@ FixRoblox() {
         return
     }
 
+    try {
+        runningHash := GetRunningRobloxVersionHash(pid)
+        latestHash := GetLatestRobloxVersionHash()
+
+        if (runningHash != latestHash)
+            MsgBox("Version mismatch detected.`n`nRunning: " runningHash "`nLatest:  " latestHash "`n`nOffsets may be incorrect. Proceeding with re-attach.", "Version Warning")
+    } catch as err {
+        MsgBox("Version check failed: " err.Message "`n`nProceeding with re-attach.", "Version Warning")
+    }
+
     H_PROCESS := 0
     RBLX_PID := pid
     RBLX_BASE := GetProcessBase(pid)
