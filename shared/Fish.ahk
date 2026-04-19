@@ -8,7 +8,6 @@ CreateFishingMacro() {
         isHolding: false,
         castThreshold: 96.0,
         castWaitTimeoutMs: 15000,
-        doneShownMs: 750,
         fishingEndGraceMs: 100,
         castStartedAt: 0,
         castReleasedAt: 0,
@@ -18,7 +17,6 @@ CreateFishingMacro() {
         outcomeResolved: false,
         fishCaughtCount: 0,
         fishLostCount: 0,
-        doneAt: 0,
         shakingIntervalMs: 25,
         lastShakedAt: 0,
         lastActionAt: 0,
@@ -63,7 +61,6 @@ InitializeCastCycle() {
     Macro.fishingLostAt := 0
     Macro.completionReached := false
     Macro.outcomeResolved := false
-    Macro.doneAt := 0
     Macro.lastShakedAt := 0
     Macro.lastActionAt := 0
     Macro.castThreshold := ResolveCastThreshold()
@@ -93,12 +90,10 @@ MacroLoop() {
         case "FISHING":
             UpdateFishingPhase()
         case "DONE":
-            if ((A_TickCount - Macro.doneAt) >= Macro.doneShownMs) {
-                if (Macro.cycleEnabled)
-                    StartMacroCycle()
-                else
-                    StopMacroCycle("OFF")
-            }
+            if (Macro.cycleEnabled)
+                StartMacroCycle()
+            else
+                StopMacroCycle("OFF")
         case "OFF":
     }
 
@@ -142,7 +137,6 @@ StopMacroCycle(nextPhase := "OFF") {
     Macro.outcomeResolved := false
     Macro.lastShakedAt := 0
     Macro.lastActionAt := 0
-    Macro.doneAt := (nextPhase = "DONE") ? A_TickCount : 0
     Macro.phase := nextPhase
 
     if (nextPhase = "DONE")
@@ -551,9 +545,6 @@ UpdateFishingPhase() {
     if (progress != "" && progress >= (MAIN["completion_threshold"] + 0.0))
         Macro.completionReached := true
 
-    ; Reel GUI lifecycle is the authoritative "minigame ongoing" signal —
-    ; negative-progress fish can drag this out arbitrarily long, so duration
-    ; alone must never end the cycle.
     if (GetReelGui()) {
         Macro.fishingLostAt := 0
 
@@ -810,28 +801,34 @@ GetNoteContainer() {
     return FindChildByName(barFrame, "noteContainer")
 }
 
-GetActiveNoteTargetX() {
+; Returns the nearest airborne note to the bar's current X, or "" if none.
+; Notes are always the priority — fish tracking only happens during gaps
+; between notes. Picking the nearest one keeps the bar from abandoning a
+; close note for a more distant one.
+GetActiveNoteTarget(playerbarX) {
     noteContainer := GetNoteContainer()
     if (!noteContainer)
         return ""
 
-    bestX := ""
-    bestY := -99999.0
+    best := ""
+    bestDist := 99999.0
 
     for noteName in ["note1", "note2"] {
         noteAddr := FindChildByName(noteContainer, noteName)
         if (!noteAddr)
             continue
         pos := ReadNotePosition(noteAddr)
-        if (pos.sy > 0.55)
+        if (pos.sy > 0.55 || pos.sy < -30)
             continue
-        if (pos.sy > bestY) {
-            bestY := pos.sy
-            bestX := pos.sx
+
+        dist := Abs(pos.sx - playerbarX)
+        if (dist < bestDist) {
+            bestDist := dist
+            best := { sx: pos.sx, sy: pos.sy }
         }
     }
 
-    return bestX
+    return best
 }
 
 class FishingController {
@@ -962,13 +959,53 @@ class FishingController {
     }
 }
 
-; Pinion's Aria controller: targets the most imminent falling note's X position.
-; Falls back to the standard fish X when no note is in catchable range.
 class PinionController extends FishingController {
+    static NOTE_MODE_ENTRY := 27.0
+    static NOTE_MODE_EXIT  := 20.0
+
+    pinionNoteModeActive := false
+
+    Reset() {
+        super.Reset()
+        this.pinionNoteModeActive := false
+    }
+
     GetFishPosition() {
-        noteX := GetActiveNoteTargetX()
-        if (noteX != "")
-            return noteX
-        return super.GetFishPosition()
+        fishX := super.GetFishPosition()
+        playerbarX := this.GetPlayerbarPosition()
+
+        if (playerbarX = "")
+            return fishX
+
+        progress := GetFishingCompletionPercent()
+
+        ; Hysteresis gate: must reach entry threshold to start note mode,
+        ; stays active until progress falls below the lower exit threshold.
+        if (progress = "") {
+            this.pinionNoteModeActive := false
+            return fishX
+        }
+
+        if (this.pinionNoteModeActive) {
+            if (progress < PinionController.NOTE_MODE_EXIT) {
+                this.pinionNoteModeActive := false
+                return fishX
+            }
+        } else {
+            if (progress < PinionController.NOTE_MODE_ENTRY)
+                return fishX
+            this.pinionNoteModeActive := true
+        }
+
+        note := GetActiveNoteTarget(playerbarX)
+        if (note = "")
+            return fishX
+
+        t := Min(1.0, (progress - PinionController.NOTE_MODE_ENTRY) / 28.0)
+        maxReach := 0.1 + (t * 0.9)
+        if (Abs(note.sx - playerbarX) > maxReach)
+            return fishX
+
+        return note.sx
     }
 }
