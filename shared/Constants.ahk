@@ -1,8 +1,8 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.0.9"
-ROBLOX_VER      := "version-26c90be22e0d4758"
+FULL_VER        := "v0.0.10"
+ROBLOX_VER      := "version-2e6461290a3541f5"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
 ; GITHUB_REPO       := "Canary-OpenMacro-XTernal" ; Canary channel
