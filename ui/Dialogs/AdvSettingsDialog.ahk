@@ -23,7 +23,7 @@ GetAdvSettingsGui() {
     button.DefaultTextColor := "0x" TextColor
     button.DefaultBg := "0x" Accent
 
-    MainTab := mg.AddTab3("x0 y0 w400 h420 c" Accent, ["Macro", "Auto Totem"])
+    MainTab := mg.AddTab3("x0 y0 w400 h420 c" Accent, ["Macro", "Auto Totem", "Webhook"])
     MainTab.SetFont("bold")
 
     MainTab.UseTab(1)
@@ -115,6 +115,51 @@ GetAdvSettingsGui() {
 
     SaveTotemBtn := button(mg, "Save", 270, 138, {w: 100, h: 23, bg: BgColor, fontSize: 10})
 
+    MainTab.UseTab(3)
+    mg.AddGroupBox("x10 y25 w380 h75 c" TextColor, "Settings").SetFont("s9 bold")
+
+    WebhookUrlEdit := mg.AddEdit("x20 y45 w265 h20")
+    TestWebhookBtn := button(mg, "Test", 300, 43, {w: 80, h: 21, bg: BgColor, fontSize: 10})
+
+    WebhookEnabled := mg.AddCheckbox("x20 y72 h20 w20")
+    mg.AddText("x40 y74 w60 h20 c" TextColor, "Enable").SetFont("s10")
+
+    mg.AddText("x110 y74 w90 h20 c" TextColor, "Interval (min)").SetFont("s10")
+    WebhookInterval := mg.AddEdit("x205 y75 w80 h20")
+
+    SaveWebhookBtn := button(mg, "Save", 300, 73, {w: 80, h: 21, bg: BgColor, fontSize: 10})
+
+    mg.AddGroupBox("x10 y110 w380 h125 c" TextColor, "Summary").SetFont("s9 bold")
+
+    SummaryFishCb := mg.AddCheckbox("x20 y130 h20 w20")
+    mg.AddText("x40 y131 w160 h20 c" TextColor, "Fish Caught/Lost").SetFont("s10")
+
+    SummarySuccessRateCb := mg.AddCheckbox("x20 y155 h20 w20")
+    mg.AddText("x40 y156 w160 h20 c" TextColor, "Success Rate").SetFont("s10")
+
+    SummaryRodCb := mg.AddCheckbox("x20 y180 h20 w20")
+    mg.AddText("x40 y181 w160 h20 c" TextColor, "Rod").SetFont("s10")
+
+    SummaryConfigCb := mg.AddCheckbox("x20 y205 h20 w20")
+    mg.AddText("x40 y206 w160 h20 c" TextColor, "Active Config").SetFont("s10")
+
+    SummaryTotemStateCb := mg.AddCheckbox("x200 y130 h20 w20")
+    mg.AddText("x220 y131 w160 h20 c" TextColor, "Auto Totem State").SetFont("s10")
+
+    SummaryTotemPopsCb := mg.AddCheckbox("x200 y155 h20 w20")
+    mg.AddText("x220 y156 w160 h20 c" TextColor, "Totems Popped").SetFont("s10")
+
+    SummarySessionTimeCb := mg.AddCheckbox("x200 y180 h20 w20")
+    mg.AddText("x220 y181 w160 h20 c" TextColor, "Session Runtime").SetFont("s10")
+
+    SummaryCastTimeoutsCb := mg.AddCheckbox("x200 y205 h20 w20")
+    mg.AddText("x220 y206 w160 h20 c" TextColor, "Cast Timeouts").SetFont("s10")
+
+    mg.AddGroupBox("x10 y240 w380 h55 c" TextColor, "Alerts").SetFont("s9 bold")
+
+    AlertTotemFailedCb := mg.AddCheckbox("x20 y262 h20 w20")
+    mg.AddText("x40 y263 w200 h20 c" TextColor, "Auto Totem Failed").SetFont("s10")
+
     ApplyCastMode(showPopup := false, *) {
         switch CastMode.Text {
             case "Perfect":
@@ -163,6 +208,21 @@ GetAdvSettingsGui() {
         UseModeDdl.Choose(MAIN["auto_totem_mode"] = "interval" ? 2 : 1)
         TotemInterval.Value := MAIN["auto_totem_interval_sec"]
         ApplyUseMode()
+
+        WebhookUrlEdit.Value := MAIN["webhook_url"]
+        WebhookEnabled.Value := MAIN["webhook_enabled"]
+        WebhookInterval.Value := MAIN["webhook_summary_interval_min"]
+
+        SummaryFishCb.Value := MAIN["webhook_summary_fish"]
+        SummarySuccessRateCb.Value := MAIN["webhook_summary_success_rate"]
+        SummaryRodCb.Value := MAIN["webhook_summary_rod"]
+        SummaryConfigCb.Value := MAIN["webhook_summary_config"]
+        SummaryTotemStateCb.Value := MAIN["webhook_summary_totem_state"]
+        SummaryTotemPopsCb.Value := MAIN["webhook_summary_totem_pops"]
+        SummarySessionTimeCb.Value := MAIN["webhook_summary_session_time"]
+        SummaryCastTimeoutsCb.Value := MAIN["webhook_summary_cast_timeouts"]
+
+        AlertTotemFailedCb.Value := MAIN["webhook_alert_totem_failed"]
     }
 
     LoadFallbackTotemDdl(preferredName := "") {
@@ -323,12 +383,87 @@ GetAdvSettingsGui() {
         try SaveTotemBtn.ctrl.Value := "Save"
     }
 
+    SendTestWebhook(*) {
+        url := Trim(WebhookUrlEdit.Value)
+        if (url = "") {
+            MsgBox("Enter a webhook URL first.", "Webhook")
+            return
+        }
+        try {
+            payload := '{"flags":32768,"components":[{"type":17,"accent_color":5763719,"components":[{"type":10,"content":"## XTernal Webhook Test\nYour webhook is configured correctly."}]}]}'
+            wr := ComObject("WinHttp.WinHttpRequest.5.1")
+            wr.Open("POST", url "?with_components=true", false)
+            wr.SetRequestHeader("Content-Type", "application/json")
+            wr.Send(payload)
+            status := wr.Status
+            if (status < 200 || status >= 300)
+                throw Error("HTTP " status ": " wr.ResponseText)
+            TestWebhookBtn.ctrl.Value := "Sent!"
+            SetTimer(RevertTestBtn, -1500)
+        } catch as err {
+            MsgBox("Failed to send: " err.Message, "Webhook Error")
+        }
+    }
+
+    RevertTestBtn(*) {
+        try TestWebhookBtn.ctrl.Value := "Test"
+    }
+
+    SaveWebhookSettings(*) {
+        rawInterval := Trim(WebhookInterval.Value)
+        if !RegExMatch(rawInterval, "^\d+$") || (rawInterval + 0) < 1 {
+            WebhookInterval.Value := MAIN["webhook_summary_interval_min"]
+            MsgBox("Interval must be a whole number greater than 0.", "Invalid Value")
+            return
+        }
+
+        MAIN["webhook_url"] := Trim(WebhookUrlEdit.Value)
+        SETTINGS["main"]["webhook_url"] := MAIN["webhook_url"]
+
+        MAIN["webhook_enabled"] := WebhookEnabled.Value
+        SETTINGS["main"]["webhook_enabled"] := WebhookEnabled.Value
+
+        MAIN["webhook_summary_interval_min"] := rawInterval + 0
+        SETTINGS["main"]["webhook_summary_interval_min"] := rawInterval + 0
+
+        SaveSettingsFile()
+        if (SETTINGS["last_config"] != "" && FileExist(CONFIGS_DIR "\" SETTINGS["last_config"] ".json"))
+            SaveConfig(SETTINGS["last_config"])
+
+        SaveWebhookBtn.ctrl.Value := "Saved!"
+        SetTimer(RevertWebhookBtn, -1500)
+    }
+
+    RevertWebhookBtn(*) {
+        try SaveWebhookBtn.ctrl.Value := "Save"
+    }
+
+    PersistWebhookFlag(key, value) {
+        MAIN[key] := value
+        SETTINGS["main"][key] := value
+        SaveSettingsFile()
+        if (SETTINGS["last_config"] != "" && FileExist(CONFIGS_DIR "\" SETTINGS["last_config"] ".json"))
+            SaveConfig(SETTINGS["last_config"])
+    }
+
     LoadAdvFields()
     RefreshTotemDdl(MAIN["auto_totem_name"])
 
     SaveCastBtn.OnEvent("Click", SaveCastSettings)
     SaveFishBtn.OnEvent("Click", SaveFishSettings)
     SaveTotemBtn.OnEvent("Click", SaveTotemSettings)
+    TestWebhookBtn.OnEvent("Click", SendTestWebhook)
+    SaveWebhookBtn.OnEvent("Click", SaveWebhookSettings)
+
+    SummaryFishCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_fish", ctrl.Value))
+    SummarySuccessRateCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_success_rate", ctrl.Value))
+    SummaryRodCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_rod", ctrl.Value))
+    SummaryConfigCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_config", ctrl.Value))
+    SummaryTotemStateCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_totem_state", ctrl.Value))
+    SummaryTotemPopsCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_totem_pops", ctrl.Value))
+    SummarySessionTimeCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_session_time", ctrl.Value))
+    SummaryCastTimeoutsCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_summary_cast_timeouts", ctrl.Value))
+    AlertTotemFailedCb.OnEvent("Click", (ctrl, *) => PersistWebhookFlag("webhook_alert_totem_failed", ctrl.Value))
 
     mg.Show(GuiShowOpts)
     hwnd := mg.Hwnd

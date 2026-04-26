@@ -27,6 +27,8 @@ CreateFishingMacro() {
         outcomeResolved: false,
         fishCaughtCount: 0,
         fishLostCount: 0,
+        castTimeoutCount: 0,
+        totemPopCount: 0,
         shakingIntervalMs: 25,
         lastShakedAt: 0,
         lastActionAt: 0,
@@ -119,15 +121,23 @@ MacroLoop() {
         (Macro.powerPercent = "" ? "---" : Macro.powerPercent "%"),
         (Macro.progressPercent = "" ? "---" : Macro.progressPercent "%")
     )
+
+    if (Macro.phase != "OFF")
+        SendSummaryWebhook()
 }
 
 StartMacroCycle() {
-    global Macro, Controller, ROD
+    global Macro, Controller, ROD, WebhookSession
 
     if (Macro.phase = "OFF") {
         Macro.totemNightCovered := false
         Macro.totemPending := false
         Macro.totemBlockedUntilCatchEnd := false
+
+        if (WebhookSession.startedAt = 0) {
+            WebhookSession.startedAt := A_TickCount
+            WebhookSession.lastSummaryAt := A_TickCount
+        }
     }
 
     Controller := IsPinionRodText(ROD) ? PinionController() : FishingController()
@@ -451,7 +461,10 @@ CompleteAutoTotemWorkflow(success := false) {
     if (success) {
         Macro.lastTotemSuccessAt := A_TickCount
         Macro.totemNightCovered := true
+        Macro.totemPopCount += 1
         AutoTotemDebugLog("marked current night as covered")
+    } else if (MAIN["webhook_alert_totem_failed"]) {
+        SendInstantAlert("Auto Totem Failed", "The auto totem workflow could not complete successfully.", 0xff4c4c)
     }
 
     ResetAutoTotemControl()
@@ -486,8 +499,10 @@ UpdateCastingPhase() {
     if (!resolved.bar) {
         Macro.powerPercent := "---"
 
-        if ((A_TickCount - Macro.castStartedAt) >= Macro.castWaitTimeoutMs)
+        if ((A_TickCount - Macro.castStartedAt) >= Macro.castWaitTimeoutMs) {
+            Macro.castTimeoutCount += 1
             MAIN["cast_on_timeout"] ? StartMacroCycle() : StopMacroCycle("OFF")
+        }
 
         return
     }
@@ -504,8 +519,10 @@ UpdateCastingPhase() {
         return
     }
 
-    if ((A_TickCount - Macro.castStartedAt) >= Macro.castWaitTimeoutMs)
+    if ((A_TickCount - Macro.castStartedAt) >= Macro.castWaitTimeoutMs) {
+        Macro.castTimeoutCount += 1
         MAIN["cast_on_timeout"] ? StartMacroCycle() : StopMacroCycle("OFF")
+    }
 }
 
 UpdateCastedPhase() {

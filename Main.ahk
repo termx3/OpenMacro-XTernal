@@ -34,6 +34,7 @@ You do not retain ownership rights that allow you to license or distribute the c
 #Include shared\Totem.ahk
 #Include shared\Hotkeys.ahk
 #Include shared\Fish.ahk
+#Include shared\Webhook.ahk
 #Include library\Discord\DiscordBuilder.ahk
 #Include ui\Dialogs\UpdateDialog.ahk
 #Include ui\Dialogs\PostUpdateDialog.ahk
