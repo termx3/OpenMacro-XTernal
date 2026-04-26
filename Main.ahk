@@ -65,7 +65,9 @@ Initialize() {
     EnsureAppDataDirs()
     StartAutoTotemDebugSession()
 
-    if (GetRobloxPID()) {
+    if (rbxPid := GetRobloxPID()) {
+        CheckRobloxVersionMismatch(rbxPid)
+
         if !EnsureRobloxReady(false, true) {
             AutoTotemDebugLog("startup attach failed; continuing unattached", false)
             MsgBox("Roblox was detected, but XTernal could not attach. The app will still open. Use Fix Roblox or start the macro again after Roblox is ready.", "Roblox Attachment")

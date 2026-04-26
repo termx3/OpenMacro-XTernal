@@ -172,6 +172,19 @@ GetEquippedToolName() {
     return ""
 }
 
+IsAnythingEquipped() {
+    character := GetCharacterModel()
+    if !character
+        return false
+
+    for childAddr in ReadChildren(character) {
+        if (ReadClassName(childAddr) = "Tool")
+            return true
+    }
+
+    return false
+}
+
 IsRodEquipped() {
     equippedTool := GetEquippedToolName()
     if (equippedTool = "")

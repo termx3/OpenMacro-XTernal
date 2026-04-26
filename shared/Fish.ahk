@@ -553,7 +553,8 @@ UpdateFishingPhase() {
 
     Macro.powerPercent := ""
 
-    ctx := GetReelBarContext()
+    reelGuiVisible := IsReelGuiVisible()
+    ctx := reelGuiVisible ? GetReelBarContext() : 0
 
     progress := GetFishingCompletionPercent()
     Macro.progressPercent := (progress = "" ? "" : Round(progress))
@@ -565,7 +566,7 @@ UpdateFishingPhase() {
         ReleaseMouse(true)
         Controller.Reset()
 
-        if (IsReelGuiVisible()) {
+        if (reelGuiVisible) {
             Macro.fishingLostAt := 0
             return
         }
@@ -608,7 +609,7 @@ HoldMouse() {
         return
 
     delay := MAIN["fishing_action_delay_ms"] + 0
-    if (delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
+    if (Macro.phase = "FISHING" && delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
         return
 
     Send("{LButton down}")
@@ -623,7 +624,7 @@ ReleaseMouse(force := false) {
         return
 
     delay := MAIN["fishing_action_delay_ms"] + 0
-    if (!force && delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
+    if (!force && Macro.phase = "FISHING" && delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
         return
 
     Send("{LButton up}")

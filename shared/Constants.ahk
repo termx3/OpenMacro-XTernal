@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.1.10"
+FULL_VER        := "v0.1.11"
 ROBLOX_VER      := "version-2e6461290a3541f5"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
@@ -99,7 +99,7 @@ GetDefaultSettings() {
     )
 
     defaults["main"] := Map(
-        "close_threshold", 0.06,
+        "close_threshold", 0.01,
         "derivative_gain", 0.55,
         "edge_boundary", 0.1,
         "neutral_duty_cycle", 0.5,

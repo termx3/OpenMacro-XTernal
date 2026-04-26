@@ -50,6 +50,8 @@ ResetRobloxAttachmentState() {
     g_CachedWorldStatuses := 0
     g_CachedHotbarGui := 0
 
+    if (H_PROCESS)
+        DllCall("CloseHandle", "Ptr", H_PROCESS)
     H_PROCESS := 0
     RBLX_PID := 0
     RBLX_BASE := 0

@@ -31,8 +31,11 @@ GetProcessBase(pid) {
         , "UInt*", &cbNeeded
         , "UInt", LIST_MODULES_ALL)
 
-    if !enumResult
+    if !enumResult {
+        DllCall("CloseHandle", "Ptr", H_PROCESS)
+        H_PROCESS := 0
         throw Error("Failed to enumerate modules for process " pid " (Error: " A_LastError ")")
+    }
 
     return NumGet(hMods, 0, "UPtr")
 }

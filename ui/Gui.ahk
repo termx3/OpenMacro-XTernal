@@ -337,10 +337,10 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 20, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "April 26, 2026").SetFont("s12 bold")
 
-        mg.AddText("x15 y70 w130 h20 c" TextColor, "Improvements").SetFont("s13 bold")
-        mg.AddText("x15 y95 w370 h510 c" TextColor, "• Heavy improvements for Pinion rod Controller.").SetFont("s10")
+        mg.AddText("x15 y70 w130 h20 c" TextColor, "Fixes").SetFont("s13 bold")
+        mg.AddText("x15 y95 w370 h510 c" TextColor, "- The macro now correctly counts fish as lost when you fail the minigame. Previously, failed catches were going untracked.`n`n- The action delay setting now only affects reeling, not casting. Before this, it was slowing down the cast itself too.`n`n- Fixed a background issue where the macro was quietly leaking memory every time it reconnected to Roblox.`n`n- The Roblox version warning now shows once when you open the app, and won't spam you if you use Fix Roblox shortly after.`n`n- If you open the macro with nothing in your hand, it will now automatically equip your rod before starting.`n`n- Lowered the default close threshold for tighter and more accurate bar tracking out of the box.").SetFont("s10")
 
     MainTab.UseTab(5)
     mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
