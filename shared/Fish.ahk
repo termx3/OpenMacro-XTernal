@@ -145,7 +145,7 @@ MacroLoop() {
 }
 
 StartMacroCycle() {
-    global Macro, Controller, ROD, WebhookSession
+    global Macro, Controller, ROD, WebhookSession, Dreambreaker
 
     if (Macro.phase = "OFF") {
         Macro.totemNightCovered := false
