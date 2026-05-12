@@ -1316,7 +1316,7 @@ class PinionController extends FishingController {
 			this.noteDeadzone := -17.25
             
 			
-        if (progress < PinionController.NOTE_MODE_ENTRY)
+        if (progress > PinionController.NOTE_MODE_ENTRY)
 			this.noteDeadzone := -19.5
 
         note := GetActiveNoteTarget()
