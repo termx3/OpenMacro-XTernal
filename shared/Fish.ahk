@@ -157,7 +157,7 @@ StartMacroCycle() {
             WebhookSession.lastSummaryAt := A_TickCount
         }
     }
-
+	Dreambreaker := IsDreambreakerRodText(ROD)
     if (IsTranquilityRodText(ROD))
         Controller := TranquilityController()
     else if (IsPinionRodText(ROD))
@@ -1215,11 +1215,13 @@ class FishingController {
     }
 
 	IsInverted(){
-		global ROD
-	
-		if(!IsDreambreakerRodText(ROD))
+		global Dreambreaker
+		
+		; Was meant to be more like this, i forgot to add this change
+		if(!Dreambreaker)
 			return false
 		
+		; Im not super sure the inversion is non permanent, so i'll just keep it like this for now
 		progress := GetFishingCompletionPercent()
 		if (progress = "")
 			return false
