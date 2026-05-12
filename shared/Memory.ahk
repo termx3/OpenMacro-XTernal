@@ -485,6 +485,15 @@ HasTranquilityHotbarRod() {
     return IsTranquilityRodText(GetHotbarRodDisplayText())
 }
 
+IsDreambreakerRodText(text) {
+    return InStr(StrLower(NormalizeRodDisplayText(text)), "dreambreaker") ? true : false
+}
+
+HasDreambreakerHotbarRod() {
+    return IsDreambreakerRodText(GetHotbarRodDisplayText())
+}
+
+
 ExtractPureRodName(text) {
     cleanText := NormalizeRodDisplayText(text)
     if (cleanText = "")
