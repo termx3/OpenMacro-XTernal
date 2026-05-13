@@ -354,7 +354,7 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 12, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 13, 2026").SetFont("s12 bold")
 
         ChangelogText := "- Added dreambreaker support"
 		. "`n- Improvements to Pinion's aria support"
