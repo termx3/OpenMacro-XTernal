@@ -367,7 +367,6 @@ GetGui() {
     MainTab.UseTab(5)
     mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
     mg.AddText("x10 y60 w300 h40 c" TextColor, "Designed, developed && maintained by Misery").SetFont("s10")
-    mg.AddText("x10 y100 w380 h40 c" TextColor, "Thanks ALOT to my loyal booster bennett (@xxx_fontxxx) <3").SetFont("s10")
     mg.AddText("x10 y580 w300 h30 c" TextColor, "© 2026 Misery. All rights reserved.")
 
     CreditsDiscordLink := mg.AddText("x275 y580 w200 h30 c" Accent, "Official Discord Server")
