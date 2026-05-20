@@ -36,7 +36,7 @@ GetGui() {
     MainTab.SetFont("bold")
 
     MainTab.UseTab(1)
-    mg.AddGroupBox("x10 y30 w380 h200 c" TextColor, "Adjustments").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y30 w380 h225 c" TextColor, "Adjustments").SetFont("s9 bold")
 
     mg.AddText("x20 y50 w150 h20 c" TextColor, "Update rate").SetFont("s10")
     UpdateRateHelp := mg.AddText("x140 y51 w50 h20 c" Accent, "what?")
@@ -58,84 +58,92 @@ GetGui() {
     NDCycleHelp.OnEvent("Click", (*) => InfoPopup.Show("Neutral duty cycle", "Sets the base hold-versus-release bias while balancing. Higher values hold more often. Lower values release more often."))
         NDCycle := mg.AddEdit("x250 y100 w40 h20", Format("{:.1f}", MAIN["neutral_duty_cycle"]))
     mg.AddText("x300 y100 w85 h20 c" TextColor, "0.20 - 0.60").SetFont("s9")
+	
+	    mg.AddText("x20 y125 w150 h20 c" TextColor, "Close threshold").SetFont("s10")
+    CloseThresholdHelp := mg.AddText("x140 y126 w50 h20 c" Accent, "what?")
+    CloseThresholdHelp.SetFont("underline")
+    CloseThresholdHelp.OnEvent("Click", (*) => InfoPopup.Show("Close Threshold", "How close the fish and player bar positions must be before the macro switches into fine balancing. Lower values require tighter alignment. Higher values start balancing sooner."))
+        CloseThreshold := mg.AddEdit("x250 y125 w40 h20", Format("{:.2f}", MAIN["close_threshold"]))
+    mg.AddText("x300 y125 w85 h20 c" TextColor, "0.01 - 0.10").SetFont("s9")
 
-    mg.AddText("x20 y125 w150 h20 c" TextColor, "Velocity Damping").SetFont("s10")
-    VelocityDampingHelp := mg.AddText("x140 y126 w50 h20 c" Accent, "what?")
+    mg.AddText("x20 y150 w150 h20 c" TextColor, "Velocity Damping").SetFont("s10")
+    VelocityDampingHelp := mg.AddText("x140 y151 w50 h20 c" Accent, "what?")
     VelocityDampingHelp.SetFont("underline")
     VelocityDampingHelp.OnEvent("Click", (*) => InfoPopup.Show("Velocity Damping", "How fast the player bar can be moving before the macro stops fine balancing and switches back to stronger correction. Lower values react sooner. Higher values keep floating longer."))
-        VelocityDamping := mg.AddEdit("x250 y125 w40 h20", MAIN["velocity_damping"])
-    mg.AddText("x300 y125 w85 h20 c" TextColor, "10 - 60").SetFont("s9")
+        VelocityDamping := mg.AddEdit("x250 y150 w40 h20", MAIN["velocity_damping"])
+    mg.AddText("x300 y150 w85 h20 c" TextColor, "10 - 60").SetFont("s9")
 
-    mg.AddText("x20 y150 w150 h20 c" TextColor, "Proportional gain").SetFont("s10")
-    ProportionalGainHelp := mg.AddText("x140 y151 w50 h20 c" Accent, "what?")
+    mg.AddText("x20 y175 w150 h20 c" TextColor, "Proportional gain").SetFont("s10")
+    ProportionalGainHelp := mg.AddText("x140 y176 w50 h20 c" Accent, "what?")
     ProportionalGainHelp.SetFont("underline")
     ProportionalGainHelp.OnEvent("Click", (*) => InfoPopup.Show("Proportional Gain", "How strongly the macro reacts to position error. Higher values correct harder. Lower values feel softer but can drift more."))
-        ProportionalGain := mg.AddEdit("x250 y150 w40 h20", Format("{:.2f}", MAIN["proportional_gain"]))
-    mg.AddText("x300 y150 w85 h20 c" TextColor, "0.10 - 1.50").SetFont("s9")
+        ProportionalGain := mg.AddEdit("x250 y175 w40 h20", Format("{:.2f}", MAIN["proportional_gain"]))
+    mg.AddText("x300 y175 w85 h20 c" TextColor, "0.10 - 1.50").SetFont("s9")
 
-    mg.AddText("x20 y175 w150 h20 c" TextColor, "Derivative gain").SetFont("s10")
-    DerivativeGainHelp := mg.AddText("x140 y176 w50 h20 c" Accent, "what?")
+    mg.AddText("x20 y200 w150 h20 c" TextColor, "Derivative gain").SetFont("s10")
+    DerivativeGainHelp := mg.AddText("x140 y201 w50 h20 c" Accent, "what?")
     DerivativeGainHelp.SetFont("underline")
     DerivativeGainHelp.OnEvent("Click", (*) => InfoPopup.Show("Derivative Gain", "How strongly the macro reacts to movement speed. Higher values damp swaying more. Too high can make the control feel twitchy."))
-        DerivativeGain := mg.AddEdit("x250 y175 w40 h20", Format("{:.2f}", MAIN["derivative_gain"]))
-    mg.AddText("x300 y175 w85 h20 c" TextColor, "0.00 - 1.00").SetFont("s9")
+        DerivativeGain := mg.AddEdit("x250 y200 w40 h20", Format("{:.2f}", MAIN["derivative_gain"]))
+    mg.AddText("x300 y200 w85 h20 c" TextColor, "0.00 - 1.00").SetFont("s9")
 
-    mg.AddText("x20 y200 w150 h20 c" TextColor, "Edge boundary").SetFont("s10")
-    EdgeBoundaryHelp := mg.AddText("x140 y201 w50 h20 c" Accent, "what?")
+    mg.AddText("x20 y225 w150 h20 c" TextColor, "Edge boundary").SetFont("s10")
+    EdgeBoundaryHelp := mg.AddText("x140 y226 w50 h20 c" Accent, "what?")
     EdgeBoundaryHelp.SetFont("underline")
     EdgeBoundaryHelp.OnEvent("Click", (*) => InfoPopup.Show("Edge Boundary", "How close the bar can get to either edge before the macro stops balancing and forces recovery. Higher values play safer. Lower values allow more edge tolerance."))
-        EdgeBoundary := mg.AddEdit("x250 y200 w40 h20", Format("{:.2f}", MAIN["edge_boundary"]))
-    mg.AddText("x300 y200 w85 h20 c" TextColor, "0.02 - 0.30").SetFont("s9")
+        EdgeBoundary := mg.AddEdit("x250 y225 w40 h20", Format("{:.2f}", MAIN["edge_boundary"]))
+    mg.AddText("x300 y225 w85 h20 c" TextColor, "0.02 - 0.30").SetFont("s9")
 
     UpdateRate.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("update_rate", UpdateRate, 1, 35, true, 0))
     PredictionStrength.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("prediction_strength", PredictionStrength, 1.0, 20.0, false, 1))
+	CloseThreshold.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("close_threshold", CloseThreshold, 0.01, 0.10, false, 2))
     NDCycle.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("neutral_duty_cycle", NDCycle, 0.20, 0.60, false, 2))
     VelocityDamping.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("velocity_damping", VelocityDamping, 10.0, 60.0, true, 0))
     ProportionalGain.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("proportional_gain", ProportionalGain, 0.10, 1.50, false, 2))
     DerivativeGain.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("derivative_gain", DerivativeGain, 0.00, 1.00, false, 2))
     EdgeBoundary.OnEvent("LoseFocus", (*) => ValidateAndSaveMain("edge_boundary", EdgeBoundary, 0.02, 0.30, false, 2))
 
-    mg.AddGroupBox("x10 y235 w380 h130 c" TextColor, "Main").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y260 w380 h130 c" TextColor, "Main").SetFont("s9 bold")
 
-    mg.AddText("x20 y260 w150 h20 c" TextColor, "Rod Equipped").SetFont("s10")
-    global RodEquipped := mg.AddText("x140 y260 w150 h100 c" TextColor, GetRodDisplayText())
+    mg.AddText("x20 y285 w150 h20 c" TextColor, "Rod Equipped").SetFont("s10")
+    global RodEquipped := mg.AddText("x140 y285 w150 h100 c" TextColor, GetRodDisplayText())
     RodEquipped.SetFont("s10")
-    CheckEquippedBtn := mg.AddText("x300 y262 w50 h20 c" Accent, "Check")
+    CheckEquippedBtn := mg.AddText("x300 y287 w50 h20 c" Accent, "Check")
     CheckEquippedBtn.SetFont("underline")
     CheckEquippedBtn.OnEvent("Click", (*) => UpdateEquippedRod())
 
-    StatusText := mg.AddText("x20 y295 w150 h20 c" TextColor, "Status: ---")
+    StatusText := mg.AddText("x20 y320 w150 h20 c" TextColor, "Status: ---")
     StatusText.SetFont("s10")
 
-    PowerText := mg.AddText("x20 y315 w150 h20 c" TextColor, "Power: ---")
+    PowerText := mg.AddText("x20 y340 w150 h20 c" TextColor, "Power: ---")
     PowerText.SetFont("s10")
 
-    ProgressText := mg.AddText("x20 y335 w150 h20 c" TextColor, "Progress: ---")
+    ProgressText := mg.AddText("x20 y360 w150 h20 c" TextColor, "Progress: ---")
     ProgressText.SetFont("s10")
 
-    CaughtText := mg.AddText("x220 y295 w150 h20 c" TextColor, "Caught: 0")
+    CaughtText := mg.AddText("x220 y320 w150 h20 c" TextColor, "Caught: 0")
     CaughtText.SetFont("s10")
 
-    LostText := mg.AddText("x220 y315 w150 h20 c" TextColor, "Lost: 0")
+    LostText := mg.AddText("x220 y340 w150 h20 c" TextColor, "Lost: 0")
     LostText.SetFont("s10")
 
-    SuccessRateText := mg.AddText("x220 y335 w160 h20 c" TextColor, "Success Rate: 0.0%")
+    SuccessRateText := mg.AddText("x220 y360 w160 h20 c" TextColor, "Success Rate: 0.0%")
     SuccessRateText.SetFont("s10")
 
-    mg.AddGroupBox("x10 y370 w380 h90 c" TextColor, "Info").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y395 w380 h90 c" TextColor, "Info").SetFont("s9 bold")
 
-    mg.AddText("x20 y390 w150 h20 c" TextColor, "Start Macro: " HOTKEYS["start_macro"]).SetFont("s10")
-    mg.AddText("x20 y410 w150 h20 c" TextColor, "Fix Roblox: " HOTKEYS["fix_roblox"]).SetFont("s10")
-    mg.AddText("x20 y430 w150 h20 c" TextColor, "Reload: " HOTKEYS["reload"]).SetFont("s10")
+    mg.AddText("x20 y410 w150 h20 c" TextColor, "Start Macro: " HOTKEYS["start_macro"]).SetFont("s10")
+    mg.AddText("x20 y430 w150 h20 c" TextColor, "Fix Roblox: " HOTKEYS["fix_roblox"]).SetFont("s10")
+    mg.AddText("x20 y450 w150 h20 c" TextColor, "Reload: " HOTKEYS["reload"]).SetFont("s10")
     ChangeHotkeysBtn := mg.AddText("x320 y433 w65 h20 c" Accent, "Change 🡒")
     ChangeHotkeysBtn.SetFont("s10 underline")
     ChangeHotkeysBtn.OnEvent("Click", (*) => MainTab.Choose(3))
 
-    mg.AddGroupBox("x10 y465 w380 h50 c" TextColor, "Config").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y490 w380 h50 c" TextColor, "Config").SetFont("s9 bold")
 
     configList := ListConfigs()
     ddlItems := configList.Length > 0 ? configList : ["No configs"]
-    ConfigDDL := mg.AddDDL("x20 y485 w160 h200", ddlItems)
+    ConfigDDL := mg.AddDDL("x20 y510 w160 h200", ddlItems)
     lastConfig := SETTINGS.Has("last_config") ? SETTINGS["last_config"] : ""
     if (lastConfig != "" && configList.Length > 0) {
         try ControlChooseString(lastConfig, ConfigDDL)
@@ -145,44 +153,44 @@ GetGui() {
         ConfigDDL.Choose(1)
     }
 
-    LoadConfigBtn := button(mg, "Load", 190, 485, {
+    LoadConfigBtn := button(mg, "Load", 190, 510, {
         w: 42,
         h: 22,
         bg: BgColor
     })
     LoadConfigBtn.OnEvent("Click", (*) => OnLoadConfig(ConfigDDL))
 
-    SaveConfigBtn := button(mg, "Save", 237, 485, {
+    SaveConfigBtn := button(mg, "Save", 237, 510, {
         w: 42,
         h: 22,
         bg: BgColor
     })
     SaveConfigBtn.OnEvent("Click", (*) => OnSaveConfig(ConfigDDL))
 
-    NewConfigBtn := button(mg, "New", 284, 485, {
+    NewConfigBtn := button(mg, "New", 284, 510, {
         w: 42,
         h: 22,
         bg: BgColor
     })
     NewConfigBtn.OnEvent("Click", (*) => OnNewConfig(ConfigDDL))
 
-    DeleteConfigBtn := button(mg, "Del", 331, 485, {
+    DeleteConfigBtn := button(mg, "Del", 331, 510, {
         w: 42,
         h: 22,
         bg: BgColor
     })
     DeleteConfigBtn.OnEvent("Click", (*) => OnDeleteConfig(ConfigDDL))
     
-    OpenConfigsBtn := mg.AddText("x20 y525 w150 h20 c" Accent, "Open Configs folder")
+    OpenConfigsBtn := mg.AddText("x20 y550 w150 h20 c" Accent, "Open Configs folder")
     OpenConfigsBtn.SetFont("underline")
     OpenConfigsBtn.OnEvent("Click", (*) => Run("explorer.exe `"" CONFIGS_DIR "`""))
 
-    OpenAdvSettingsBtn := mg.AddText("x225 y525 w150 h20 c" Accent, "Open Advanced Settings")
+    OpenAdvSettingsBtn := mg.AddText("x225 y550 w150 h20 c" Accent, "Open Advanced Settings")
     OpenAdvSettingsBtn.SetFont("s10 underline")
     OpenAdvSettingsBtn.OnEvent("Click", (*) => GetAdvSettingsGui())
 
     MainTab.UseTab(2)
-    mg.AddGroupBox("x10 y30 w380 h185 c" TextColor, "Settings").SetFont("s9 bold")
+    mg.AddGroupBox("x10 y30 w380 h205 c" TextColor, "Settings").SetFont("s9 bold")
 
     AutoAppraise := mg.AddCheckbox("x20 y48 w20 h20")
     AutoAppraise.Value := MAIN["auto_appraise_enabled"]
@@ -213,30 +221,38 @@ GetGui() {
     AddMutationButton.SetFont("bold")
     AddMutationButton.OnEvent("Click", AddMutationClicked)
 
-    AutoAppraiseMutationHelp := mg.AddText("x100 y88 h20 c" Accent, "What?")
+    AutoAppraiseMutationHelp := mg.AddText("x135 y88 h20 c" Accent, "What?")
     AutoAppraiseMutationHelp.SetFont("underline")
     AutoAppraiseMutationHelp.OnEvent("Click", (*) => InfoPopup.Show("Mutation", "Pick your desired mutation, which the macro will get"))
+	
+	mg.AddText("x20 y113 w100 h20 c" TextColor, "Appraise Delay").SetFont("s10")
+    AppraiseDelay := mg.AddEdit("x260 y113 w120 h20", MAIN["appraise_delay_ms"])
+	
+	AppraiseDelayHelp := mg.AddText("x135 y114 h20 c" Accent, "What?")
+    AppraiseDelayHelp.SetFont("underline")
+    AppraiseDelayHelp.OnEvent("Click", (*) => InfoPopup.Show("Appraise Delay", "How quickly the macro attempts to check and appraise the held fish. Higher values slow down the appraiser but reduce the chance of the macro breaking."))
 
-    mg.AddText("x20 y115 w100 h20 c" TextColor, "Click Point").SetFont("s10")
-    AppraiseClickX := mg.AddEdit("x210 y114 w70 h20 ReadOnly", MAIN["auto_appraise_click_x"])
-    AppraiseClickY := mg.AddEdit("x310 y114 w70 h20 ReadOnly", MAIN["auto_appraise_click_y"])
-    mg.AddText("x190 y116 w15 h20 c" TextColor, "X").SetFont("s9")
-    mg.AddText("x290 y116 w15 h20 c" TextColor, "Y").SetFont("s9")
+    mg.AddText("x20 y141 w100 h20 c" TextColor, "Click Point").SetFont("s10")
+    AppraiseClickX := mg.AddEdit("x210 y139 w70 h20 ReadOnly", MAIN["auto_appraise_click_x"])
+    AppraiseClickY := mg.AddEdit("x310 y139 w70 h20 ReadOnly", MAIN["auto_appraise_click_y"])
+    mg.AddText("x190 y141 w15 h20 c" TextColor, "X").SetFont("s9")
+    mg.AddText("x290 y141 w15 h20 c" TextColor, "Y").SetFont("s9")
 
-    PickAppraisePointBtn := button(mg, "Pick Click Point", 20, 145, { w: 170, h: 25, bg: BgColor })
-    ClearAppraisePointBtn := button(mg, "Clear Point", 200, 145, { w: 170, h: 25, bg: BgColor })
+    PickAppraisePointBtn := button(mg, "Pick Click Point", 20, 168, { w: 170, h: 25, bg: BgColor })
+    ClearAppraisePointBtn := button(mg, "Clear Point", 200, 168, { w: 170, h: 25, bg: BgColor })
 
-    global AppraiseStatusText := mg.AddText("x20 y180 w360 h30 c" TextColor, "Status: Ready.")
+    global AppraiseStatusText := mg.AddText("x20 y203 w360 h30 c" TextColor, "Status: Ready.")
 
-    mg.AddGroupBox("x10 y225 w380 h160 c" TextColor, "Guide").SetFont("s9 bold")
-    mg.AddText("x20 y245 w360 h20 c" SubColor, "Webhook enabled: you'll be notified when appraising finishes.").SetFont("s9")
-    mg.AddText("x20 y270 w360 h20 c" SubColor, "Hold the fish you want appraised before starting.").SetFont("s9")
-    mg.AddText("x20 y295 w360 h30 c" SubColor, "Set the click point on the appraiser dialogue option, then start appraising.").SetFont("s9")
-    mg.AddText("x20 y330 w360 h20 c" SubColor, HOTKEYS["start_macro"] ": Start Appraising").SetFont("s9")
-    mg.AddText("x20 y355 w360 h20 c" SubColor, HOTKEYS["stop_appraise"] ": Stop Appraising").SetFont("s9")
+    mg.AddGroupBox("x10 y245 w380 h160 c" TextColor, "Guide").SetFont("s9 bold")
+    mg.AddText("x20 y265 w360 h20 c" SubColor, "Webhook enabled: you'll be notified when appraising finishes.").SetFont("s9")
+    mg.AddText("x20 y290 w360 h20 c" SubColor, "Hold the fish you want appraised before starting.").SetFont("s9")
+    mg.AddText("x20 y320 w360 h30 c" SubColor, "Set the click point on the appraiser dialogue option, then start appraising.").SetFont("s9")
+    mg.AddText("x20 y355 w360 h20 c" SubColor, HOTKEYS["start_macro"] ": Start Appraising").SetFont("s9")
+    mg.AddText("x20 y380 w360 h20 c" SubColor, HOTKEYS["stop_appraise"] ": Stop Appraising").SetFont("s9")
 
     AutoAppraise.OnEvent("Click", SaveAutoAppraiseEnabled)
     AutoAppraiseMutation.OnEvent("Change", SaveAutoAppraiseMutation)
+	AppraiseDelay.OnEvent("LoseFocus", SaveAppraiseDelay)
     PickAppraisePointBtn.OnEvent("Click", BeginPickAppraisePoint)
     ClearAppraisePointBtn.OnEvent("Click", ClearAppraisePoint)
 
@@ -354,9 +370,9 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 18, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 20, 2026").SetFont("s12 bold")
 
-        ChangelogText := "Patched for version-9377ee10133e4be3"
+        ChangelogText := "Implemented fixes to appraisal and readded close threshold"
 
         mg.AddText("x15 y65 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 
@@ -406,6 +422,33 @@ GetGui() {
 
         MAIN["auto_appraise_enabled"] := ctrl.Value ? 1 : 0
     }
+	
+	SaveAppraiseDelay(ctrl, *) {
+	global MAIN, SETTINGS
+
+	value := Trim(ctrl.Value)
+
+	if !RegExMatch(value, "^\d+$") {
+		ctrl.Value := MAIN["appraise_delay_ms"]
+		MsgBox("Appraise Delay must be a valid number", "Invalid Appraise Delay")
+		return
+	}
+
+	value := Integer(value)
+
+	; Optional limits. Adjust these however you want.
+	if (value < 0) {
+		ctrl.Value := MAIN["appraise_delay_ms"]
+		MsgBox("Appraise Delay cannot be a negative.", "Invalid Appraise Delay")
+		return
+	}
+
+	MAIN["appraise_delay_ms"] := value
+	SETTINGS["main"]["appraise_delay_ms"] := value
+	ctrl.Value := value
+
+	SaveSettingsFile()
+}
 
     SaveAutoAppraiseMutation(ctrl, *) {
         global MAIN, SETTINGS
@@ -483,9 +526,9 @@ GetGui() {
 	ResizeGuiTab(ctrl, *){
 		switch ctrl.Value{
 			case 1: ; home
-				w := 400, h := 550
+				w := 400, h := 575
 			case 2: ; appraisal
-				w := 400, h := 400
+				w := 400, h := 420
 			case 3: ; Settings
 				w := 400, h := 620
 			case 4: ; Changelog

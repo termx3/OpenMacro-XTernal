@@ -1,6 +1,8 @@
 #Requires AutoHotkey v2.0
 
-APPRAISE_FIXED_DELAY_MS := 100
+;APPRAISE_FIXED_DELAY_MS := 100
+APPRAISE_FIXED_RETRY_MS := 500
+APPRAISE_SUBVALUES_MAX_RETRIES := 5
 
 IsAutoAppraiseRuntimeEnabled() {
     global MAIN
@@ -23,6 +25,8 @@ ClearAppraiseRuntimeCache() {
     Macro.appraiseSubvaluesAddr := 0
     Macro.appraiseLastClickAt := 0
     Macro.appraiseWaitStartedAt := 0
+    Macro.appraiseSubvaluesRetryCount := 0
+    Macro.appraiseSubvaluesLastRetryAt := 0
     Macro.appraiseStartCoins := ""
     Macro.appraiseEndCoins := ""
     Macro.appraiseState := "IDLE"
@@ -102,7 +106,7 @@ StopAppraiseCycle(nextPhase := "OFF", status := "Stopped.") {
 }
 
 UpdateAppraisePhase() {
-    global Macro, MAIN, APPRAISE_FIXED_DELAY_MS
+    global Macro, MAIN, APPRAISE_SUBVALUES_MAX_RETRIES, APPRAISE_FIXED_RETRY_MS
 
     switch Macro.appraiseState {
         case "CLICK_FIRST":
@@ -112,36 +116,60 @@ UpdateAppraisePhase() {
             Macro.appraiseState := "CLICK_SECOND"
 
         case "CLICK_SECOND":
-            if ((A_TickCount - Macro.appraiseLastClickAt) < APPRAISE_FIXED_DELAY_MS)
+            if ((A_TickCount - Macro.appraiseLastClickAt) < MAIN["appraise_delay_ms"])
                 return
 
             SetAppraiseStatus("Clicking 2/2.")
             ClickAppraisePoint()
-            Macro.appraiseLastClickAt := A_TickCount
-            Macro.appraiseWaitStartedAt := A_TickCount
-            Macro.appraiseState := "WAIT_RESULT"
+			Macro.appraiseLastClickAt := A_TickCount
+			Macro.appraiseWaitStartedAt := A_TickCount
+			Macro.appraiseSubvaluesLastRetryAt := A_TickCount
+			Macro.appraiseState := "WAIT_RESULT"
 
         case "WAIT_RESULT":
-            if ((A_TickCount - Macro.appraiseWaitStartedAt) < APPRAISE_FIXED_DELAY_MS)
-                return
-
+		
             desiredMutation := Trim(MAIN["auto_appraise_mutation"])
+			
             try {
                 if (HasDesiredMutationInCachedSubvalues(desiredMutation)) {
                     CompleteAppraiseCycle("Found " desiredMutation ".")
                     return
                 }
             } catch as err {
+                if (InStr(err.Message, "Subvalues")) {
+                    ; Throttle only Subvalues retries with their own delay.
+                    if (Macro.appraiseSubvaluesLastRetryAt
+                        && (A_TickCount - Macro.appraiseSubvaluesLastRetryAt) < APPRAISE_FIXED_RETRY_MS) {
+                        return
+                    }
+
+                    Macro.appraiseSubvaluesLastRetryAt := A_TickCount
+                    Macro.appraiseSubvaluesRetryCount += 1
+
+                    if (Macro.appraiseSubvaluesRetryCount <= APPRAISE_SUBVALUES_MAX_RETRIES) {
+                        SetAppraiseStatus(
+                            "Waiting for fish info/Subvalues... "
+                            Macro.appraiseSubvaluesRetryCount
+                            "/"
+                            APPRAISE_SUBVALUES_MAX_RETRIES
+                        )
+                        return
+                    }
+                }
+
                 FailAppraiseCycle(err.Message)
                 return
             }
+			
+			Macro.appraiseSubvaluesRetryCount := 0
+			Macro.appraiseSubvaluesLastRetryAt := 0
 
             SetAppraiseStatus("Still looking for " desiredMutation ".")
             Macro.appraiseWaitStartedAt := A_TickCount
             Macro.appraiseState := "WAIT_RETRY"
 
         case "WAIT_RETRY":
-            if ((A_TickCount - Macro.appraiseWaitStartedAt) < APPRAISE_FIXED_DELAY_MS)
+            if ((A_TickCount - Macro.appraiseWaitStartedAt) < MAIN["appraise_delay_ms"])
                 return
 
             SetAppraiseStatus("Retrying.")

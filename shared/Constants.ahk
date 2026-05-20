@@ -1,7 +1,7 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.2.29"
+FULL_VER        := "v0.2.30"
 ROBLOX_VER      := "version-bf6344c9c23446bf"
 GITHUB_OWNER        := "termx3"
 GITHUB_REPO         := "OpenMacro-XTernal"
@@ -123,6 +123,7 @@ GetDefaultSettings() {
     )
 
     defaults["main"] := Map(
+		"close_threshold", 0.06,
         "derivative_gain", 0.55,
         "edge_boundary", 0.1,
         "neutral_duty_cycle", 0.5,
@@ -158,7 +159,8 @@ GetDefaultSettings() {
         "webhook_summary_totem_pops", 1,
         "webhook_summary_session_time", 1,
         "webhook_summary_cast_timeouts", 1,
-        "webhook_alert_totem_failed", 1
+        "webhook_alert_totem_failed", 1,
+		"appraise_delay_ms", 100
     )
 
     defaults["last_config"] := ""
@@ -181,7 +183,6 @@ GetDefaultSettings() {
 
 GetObsoleteMainSettings() {
     return [
-        "close_threshold",
         "fishing_end_grace_ms",
         "post_catch_delay_ms",
         "post_totem_delay_ms",

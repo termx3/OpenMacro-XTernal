@@ -1115,18 +1115,18 @@ class FishingController {
         predicted := playerbarPos + (playerbarVelocity * predictionScale)
         predictedError := fishPos - predicted
 
-        hardFixThreshold := 0.01
+        closeThreshold := MAIN["close_threshold"]
         sameSideAfterPrediction := (error * predictedError) > 0
 
         approachingTarget := (error * playerbarVelocity) > 0
-        remainingDistance := Max(0.0, Abs(error) - hardFixThreshold)
+        remainingDistance := Max(0.0, Abs(error) - closeThreshold)
 
         ; full stop fixing and start bleeding speed early
         brakeLookahead := Abs(playerbarVelocity) * 8
         needsPreSlow := approachingTarget && (brakeLookahead >= remainingDistance)
 
         ; hard fix only when far enough and not yet in the braking zone
-        if (Abs(error) > hardFixThreshold && sameSideAfterPrediction && !needsPreSlow) {
+        if (Abs(error) > closeThreshold && sameSideAfterPrediction && !needsPreSlow) {
             if (error > 0)
                 this.Hold()
             else
@@ -1234,10 +1234,8 @@ IsNoteInPlayerBar(x, ctx := "", padding := 0) {
 	)
 }
 
-	; nerfed version for free macro
 class PinionController extends FishingController {
-	; changed deadzone to static since it's not being changed at any point of time
-	static NOTE_DEADZONE := -19.5
+	static NOTE_DEADZONE := -16.5
 	
 	notesCaught := 0
 	noteCounted := false
@@ -1249,8 +1247,7 @@ class PinionController extends FishingController {
 		this.noteCounted := false
 		this.resonanceActive := false
     }
-	
-	; reverted version, only calculates midpoint
+
 	GetBothTargets(fishX, noteX, halfWidth) {
 		distance := Abs(noteX - fishX)
 		fullWidth := halfWidth * 2
@@ -1258,11 +1255,21 @@ class PinionController extends FishingController {
 		if(distance > fullWidth)
 			return ""
 		
-		return (fishX + noteX) / 2
+		if (distance <= halfWidth)
+			return fishX
+		
+		return noteX > fishX ? noteX - halfWidth : noteX + halfWidth
 	}
 	
-	; this could actually be optimized slightly by not having it constantly count after resonanceActive
-	; Pretty sure the performance bonus was too small to be worth the extra work
+	GetNoteDeadzone(playerbarX, fishX, noteX) {
+		playerToNoteDistance := Abs(noteX - playerbarX)
+		fishToNoteDistance := Abs(noteX - fishX)
+		
+		dz := PinionController.NOTE_DEADZONE - (playerToNoteDistance * 30.0) - (fishToNoteDistance * 10.0)
+		
+		return Max(-22, Min(PinionController.NOTE_DEADZONE, dz))
+	}
+	
 	UpdateNoteCount(note, ctx){
 		if(!this.noteCounted && note.sy >= -0.8 && note.sy <= 0.53){
 			if(IsNoteInPlayerBar(note.sx, ctx, 0.1)){
@@ -1274,6 +1281,7 @@ class PinionController extends FishingController {
 				this.noteCounted := true
 			}
 		}
+		
 		if(note.sy < -8)
 			this.noteCounted := false
 			
@@ -1281,7 +1289,6 @@ class PinionController extends FishingController {
 			this.resonanceActive := true
 	}
 	
-	; moved notecount loop into a separate function for easier readability
     GetFishPosition(ctx := "") {
         if (ctx = "")
             ctx := GetReelBarContext()
@@ -1301,11 +1308,12 @@ class PinionController extends FishingController {
 			
 		if (this.resonanceActive)
 			return note.sx
-		
-		if (note.sy < PinionController.NOTE_DEADZONE)
-			return fishX
 			
 		this.UpdateNoteCount(note, ctx)
+			
+		activeDeadzone := this.GetNoteDeadzone(playerbarX, fishX, note.sx)
+		if (note.sy <= activeDeadzone)
+			return fishX
 		
 		bothCatch := this.GetBothTargets(fishX, note.sx, halfWidth)
 		if (bothCatch != "")
