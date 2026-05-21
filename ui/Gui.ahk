@@ -370,9 +370,9 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 20, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 22, 2026").SetFont("s12 bold")
 
-        ChangelogText := "Implemented fixes to appraisal and readded close threshold"
+        ChangelogText := "Patched for version-4b6315bf1f0a4dbb"
 
         mg.AddText("x15 y65 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 

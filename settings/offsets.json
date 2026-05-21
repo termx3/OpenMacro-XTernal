@@ -1,9 +1,9 @@
 {
     "Source": "https://imtheo.lol/Offsets",
-    "Roblox Version": "version-9377ee10133e4be3",
+    "Roblox Version": "version-4b6315bf1f0a4dbb",
     "Dumper Version": "2.1.6",
     "Dumped By": "theo (https://imtheo.lol)",
-    "Dumped At": "12:53 18/05/2026",
+    "Dumped At": "20:49 21/05/2026",
     "Discord": "https://discord.gg/rbxoffsets",
     "Total Offsets": 381,
     "Offsets": {
@@ -11,21 +11,21 @@
             "Pointer": 0
         },
         "TaskScheduler": {
-            "Pointer": 130017672,
+            "Pointer": 133678200,
             "JobStart": 200,
             "JobEnd": 208,
             "JobName": 24,
             "MaxFPS": 176
         },
         "VisualEngine": {
-            "Pointer": 129847800,
+            "Pointer": 133508336,
             "Dimensions": 2720,
             "ViewMatrix": 320,
-            "RenderView": 2944,
+            "RenderView": 2960,
             "FakeDataModel": 2688
         },
         "FakeDataModel": {
-            "Pointer": 122644312,
+            "Pointer": 126257768,
             "RealDataModel": 464
         },
         "MouseService": {
@@ -41,11 +41,11 @@
             "IsCoreScript": 0,
             "GUID": 232,
             "Hash": 352,
-            "ByteCode": 0
+            "ByteCode": 336
         },
         "RenderView": {
-            "LightingValid": 0,
-            "SkyValid": 0,
+            "LightingValid": 336,
+            "SkyValid": 653,
             "VisualEngine": 16,
             "DeviceD3D11": 8
         },
@@ -76,7 +76,7 @@
             "GameLoaded": 1592,
             "JobId": 312,
             "Workspace": 376,
-            "ScriptContext": 1072,
+            "ScriptContext": 1088,
             "PlaceVersion": 444,
             "ServerIP": 1568,
             "ToRenderView1": 472,
@@ -152,7 +152,7 @@
             "Looped": 341
         },
         "SpawnLocation": {
-            "AllowTeamChangeOnTouch": 69,
+            "AllowTeamChangeOnTouch": 504,
             "Enabled": 505,
             "Neutral": 506,
             "ForcefieldDuration": 496,
@@ -230,7 +230,7 @@
             "HipHeight": 416,
             "MaxSlopeAngle": 440,
             "SeatPart": 288,
-            "HumanoidRootPart": 1160,
+            "HumanoidRootPart": 1152,
             "CameraOffset": 320,
             "HealthDisplayDistance": 408,
             "NameDisplayDistance": 444,
@@ -250,11 +250,11 @@
             "RequiresNeck": 489,
             "AutoJumpEnabled": 480,
             "AutoRotate": 481,
-            "IsWalking": 2343,
+            "IsWalking": 2335,
             "MoveToPoint": 380,
             "MoveToPart": 304,
-            "WalkTimer": 1048,
-            "HumanoidState": 2216,
+            "WalkTimer": 1040,
+            "HumanoidState": 2208,
             "HumanoidStateID": 32,
             "FloorMaterial": 400,
             "TargetPoint": 356
@@ -501,7 +501,7 @@
             "Speed": 228,
             "TimePosition": 232,
             "Looped": 245,
-            "IsPlaying": 2584
+            "IsPlaying": 2576
         },
         "Animator": {
             "ActiveAnimations": 2152
@@ -509,7 +509,7 @@
         "LocalScript": {
             "GUID": 232,
             "Hash": 440,
-            "ByteCode": 0
+            "ByteCode": 424
         },
         "ByteCode": {
             "Size": 32,
@@ -518,7 +518,7 @@
         "Script": {
             "GUID": 232,
             "Hash": 440,
-            "ByteCode": 0
+            "ByteCode": 424
         }
     }
 }
