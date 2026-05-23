@@ -370,25 +370,26 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 22, 2026").SetFont("s12 bold")
+        mg.AddText("x270 y33 w120 h50 c" TextColor, "May 20, 2026").SetFont("s12 bold")
 
-        ChangelogText := "Patched for version-4b6315bf1f0a4dbb"
+        ChangelogText := "Implemented fixes to appraisal and readded close threshold"
 
         mg.AddText("x15 y65 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 
     MainTab.UseTab(5)
     mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
-    mg.AddText("x10 y60 w300 h40 c" TextColor, "Designed, developed && maintained by Misery").SetFont("s10")
+    mg.AddText("x10 y60 w300 h40 c" TextColor, "Designed, developed by Misery").SetFont("s10")
+	mg.AddText("x10 y80 w300 h40 c" TextColor, "Maintained By Shinkting").SetFont("s10")
     mg.AddText("x10 y100 w380 h40 c" TextColor, "Thanks to my booster spider (@asxspider) <3").SetFont("s10")
     mg.AddText("x10 y580 w300 h30 c" TextColor, "© 2026 Misery. All rights reserved.")
 
     CreditsDiscordLink := mg.AddText("x275 y580 w200 h30 c" Accent, "Official Discord Server")
     CreditsDiscordLink.SetFont("underline")
-    CreditsDiscordLink.OnEvent("Click", (*) => Run("https://discord.gg/d2gqxEUx7U"))
+    CreditsDiscordLink.OnEvent("Click", (*) => Run("https://discord.gg/openmacro"))
 
     CreditsWebLink := mg.AddText("x10 y560 w200 h20 c" Accent, "Official Website")
     CreditsWebLink.SetFont("underline")
-    CreditsWebLink.OnEvent("Click", (*) => Run("https://discord.gg/d2gqxEUx7U"))
+    CreditsWebLink.OnEvent("Click", (*) => Run("https://discord.gg/openmacro"))
 
     mg.Show("w400 h630 y100 x1100")
     UpdateRobloxUiState()
