@@ -246,7 +246,7 @@ SendHttpRequest(method, url, headers := "", redirectCount := 0) {
 
     request := CreateHttpRequest()
     request.Open(method, url, false)
-    request.SetRequestHeader("User-Agent", GITHUB_REPO " Updater")
+    request.SetRequestHeader("User-Agent", UPDATER_USER_AGENT)
 
     if (headers is Map) {
         for name, value in headers
@@ -365,7 +365,7 @@ CompareVersions(leftVersion, rightVersion) {
 }
 
 BuildTagZipUrl(version) {
-    return TAG_ZIP_BASE_URL version ".zip"
+    return XTERNAL_API_BASE "/" version "/full.zip"
 }
 
 CreateUpdateTempRoot(version) {

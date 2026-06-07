@@ -2,3 +2,9 @@ ruvector.db
 ruvector.db-*
 .swarm/
 .hive-mind/
+
+# release tool: local secrets + build output (never commit / never ship)
+.env
+tools/release/.env
+tools/release/bin/
+tools/release/obj/

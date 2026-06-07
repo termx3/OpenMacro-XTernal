@@ -23,13 +23,14 @@
 #Requires AutoHotkey v2.0
 
 MAJOR_VER       := "v0"
-FULL_VER        := "v0.2.42"
+FULL_VER        := "v0.2.43"
 ROBLOX_VER      := "version-bf6344c9c23446bf"
-GITHUB_OWNER        := "termx3"
-GITHUB_REPO         := "OpenMacro-XTernal"
-; GITHUB_REPO       := "Canary-OpenMacro-XTernal" ; Canary channel
-VERSION_URL         := "https://raw.githubusercontent.com/" GITHUB_OWNER "/" GITHUB_REPO "/main/version.txt"
-TAG_ZIP_BASE_URL    := "https://github.com/" GITHUB_OWNER "/" GITHUB_REPO "/archive/refs/tags/"
+; Self-hosted update channel (migrated off GitHub). The client asks the API for
+; the current version string, then downloads that version's full.zip.
+XTERNAL_API_BASE    := "https://openmacro.net/api/v1/xternal"
+; XTERNAL_API_BASE  := "https://openmacro.net/api/v1/xternal-canary" ; Canary channel
+VERSION_URL         := XTERNAL_API_BASE "/version"
+UPDATER_USER_AGENT  := "OpenMacro-XTernal Updater"
 UPDATE_RELAUNCH_ARG := "--post-update"
 ROBLOX_INSTANCE := "RobloxPlayerBeta.exe"
 H_PROCESS       := 0

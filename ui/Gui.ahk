@@ -51,6 +51,20 @@ GetGui() {
     mg.Title := "OpenMacro Xternal | " FULL_VER
     mg.SetFont(, "Segoe UI")
 
+    ; App icon: the black logo in the title bar (small icon) so it stays visible on
+    ; the light Windows title bar, and the normal white logo in the taskbar / Alt-Tab
+    ; switcher (big icon). Per-window small vs big icons require WM_SETICON. The Gui
+    ; isn't shown yet here, so DetectHiddenWindows must be on for ahk_id to find it.
+    TitleIconPath := A_ScriptDir "\images\OpenMacroBlack.png"
+    TaskIconPath  := A_ScriptDir "\images\OpenMacro.png"
+    prevDHW := A_DetectHiddenWindows
+    DetectHiddenWindows(true)
+    if FileExist(TitleIconPath)
+        SendMessage(0x0080, 0, LoadHQIcon(TitleIconPath, 16), , "ahk_id " mg.Hwnd)  ; WM_SETICON, ICON_SMALL
+    if FileExist(TaskIconPath)
+        SendMessage(0x0080, 1, LoadHQIcon(TaskIconPath, 32), , "ahk_id " mg.Hwnd)   ; WM_SETICON, ICON_BIG
+    DetectHiddenWindows(prevDHW)
+
     RobloxStatusCtrl := mg.AddText("x295 y3 w200 h15 c" TextColor, GetRobloxStatusText())
     RobloxStatusCtrl.SetFont("s9 bold")
 
@@ -392,26 +406,40 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x270 y33 w120 h50 c" TextColor, "June 3nd, 2026").SetFont("s12 bold")
+        mg.AddText("x260 y33 w150 h50 c" TextColor, "June 3nd, 2026").SetFont("s12 bold")
 
         ChangelogText := "Patched for version-ad5d3e2906444472"
 
         mg.AddText("x15 y65 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 
     MainTab.UseTab(5)
-    mg.AddText("x10 y30 w300 h40 c" TextColor, "OpenMacro XTernal").SetFont("s15 bold")
-    mg.AddText("x10 y60 w300 h40 c" TextColor, "Designed, developed by Misery").SetFont("s10")
-	mg.AddText("x10 y80 w300 h40 c" TextColor, "Maintained By Shinkting").SetFont("s10")
-    mg.AddText("x10 y100 w380 h40 c" TextColor, "Thanks to my booster spider (@asxspider) <3").SetFont("s10")
-    mg.AddText("x10 y580 w300 h30 c" TextColor, "© 2026 Misery. All rights reserved.")
+    OMLogoPath := A_ScriptDir "\images\OpenMacro.png"
+    mg.AddPicture("x10 y30 w35 h30", "HBITMAP:*" LoadHQBitmap(OMLogoPath, 35, 30))
+    mg.AddText("x55 y30 w300 h40 c" TextColor " BackgroundTrans", "OpenMacro XTernal").SetFont("s15 bold")
+    mg.AddText("x15 y70 w300 h40 c" TextColor " BackgroundTrans", "Designed, developed by Misery").SetFont("s10")
+	mg.AddText("x15 y90 w300 h40 c" TextColor " BackgroundTrans", "Maintained By Shinkting").SetFont("s10")
+    LegalNotice := "Copyright © 2026 (@anorexc)`n`n"
+        . "Licensed under the GNU Affero General Public License, version 3.0 only (AGPL-3.0-only). See the LICENSE and NOTICE files in the project root.`n`n"
+        . "This program comes with ABSOLUTELY NO WARRANTY. This is free software, and you are welcome to redistribute it under the terms of the AGPL-3.0.`n`n"
+        . "This product includes software developed by the OpenMacro XTernal project. Any redistribution, deployment, or use over a network must retain these notices and make the complete corresponding source available under the AGPL-3.0.`n`n"
+        . "Third-party components in the library/ folder remain the property of their respective authors under their own licenses."
 
-    CreditsDiscordLink := mg.AddText("x275 y580 w200 h30 c" Accent, "Official Discord Server")
+    mg.AddText("x15 y150 w378 h20 c" TextColor " BackgroundTrans", "License && Legal Notice").SetFont("s10 bold")
+    mg.AddText("x15 y172 w378 h345 c" SubColor " BackgroundTrans", LegalNotice).SetFont("s8")
+
+    CreditsLicenseLink := mg.AddText("x10 y525 w250 h20 c" Accent, "View the full AGPL-3.0 license")
+    CreditsLicenseLink.SetFont("underline")
+    CreditsLicenseLink.OnEvent("Click", (*) => Run("https://www.gnu.org/licenses/agpl-3.0.txt"))
+
+    CreditsWebLink := mg.AddText("x10 y552 w200 h20 c" Accent, "Official Website")
+    CreditsWebLink.SetFont("underline")
+    CreditsWebLink.OnEvent("Click", (*) => Run("https://openmacro.net"))
+
+    CreditsDiscordLink := mg.AddText("x275 y552 w200 h20 c" Accent, "Official Discord Server")
     CreditsDiscordLink.SetFont("underline")
     CreditsDiscordLink.OnEvent("Click", (*) => Run("https://discord.gg/openmacro"))
 
-    CreditsWebLink := mg.AddText("x10 y560 w200 h20 c" Accent, "Official Website")
-    CreditsWebLink.SetFont("underline")
-    CreditsWebLink.OnEvent("Click", (*) => Run("https://discord.gg/openmacro"))
+    mg.AddText("x10 y578 w380 h20 c" SubColor, "© 2026 (@anorexc) · OpenMacro XTernal · Licensed under AGPL-3.0-only").SetFont("s8")
 
     mg.Show("w400 h630 y100 x1100")
     UpdateRobloxUiState()
@@ -609,6 +637,72 @@ ApplyThemePreset(ddl, themes, appearanceFields) {
             field.swatch.Opt("Background" theme[field.key])
         }
     }
+}
+
+; Returns an HBITMAP of `path` resized to w*h logical px using GDI+
+; HighQualityBicubic interpolation. Supersamples by the screen DPI factor so it
+; stays sharp on hi-DPI displays. The "HBITMAP:*" prefix lets the Picture control
+; take ownership and free it.
+LoadHQBitmap(path, w, h) {
+    dpi := A_ScreenDPI / 96
+    w := Round(w * dpi), h := Round(h * dpi)
+
+    DllCall("LoadLibrary", "Str", "gdiplus", "Ptr")
+    si := Buffer(A_PtrSize = 8 ? 24 : 16, 0)
+    NumPut("UInt", 1, si, 0)                                   ; GdiplusVersion = 1
+    DllCall("gdiplus\GdiplusStartup", "Ptr*", &tok := 0, "Ptr", si, "Ptr", 0)
+
+    DllCall("gdiplus\GdipCreateBitmapFromFile", "WStr", path, "Ptr*", &src := 0)
+    DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", w, "Int", h, "Int", 0
+          , "Int", 0x26200A, "Ptr", 0, "Ptr*", &dst := 0)      ; 32bppARGB
+    DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", dst, "Ptr*", &g := 0)
+    DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", g, "Int", 7)  ; HighQualityBicubic
+    DllCall("gdiplus\GdipSetSmoothingMode",     "Ptr", g, "Int", 4)  ; AntiAlias
+    DllCall("gdiplus\GdipSetPixelOffsetMode",   "Ptr", g, "Int", 2)  ; HighQuality
+    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", g, "Ptr", src
+          , "Int", 0, "Int", 0, "Int", w, "Int", h)
+    DllCall("gdiplus\GdipCreateHBITMAPFromBitmap", "Ptr", dst, "Ptr*", &hbm := 0, "UInt", 0)
+
+    DllCall("gdiplus\GdipDeleteGraphics", "Ptr", g)
+    DllCall("gdiplus\GdipDisposeImage", "Ptr", dst)
+    DllCall("gdiplus\GdipDisposeImage", "Ptr", src)
+    DllCall("gdiplus\GdiplusShutdown", "Ptr", tok)
+    return hbm
+}
+
+; Returns an HICON of `path` scaled to fit a square `size`x`size` canvas with the
+; aspect ratio preserved and transparent padding, using GDI+ HighQualityBicubic.
+; Used as the window/taskbar icon via WM_SETICON; Windows frees it on exit/reload.
+LoadHQIcon(path, size) {
+    DllCall("LoadLibrary", "Str", "gdiplus", "Ptr")
+    si := Buffer(A_PtrSize = 8 ? 24 : 16, 0)
+    NumPut("UInt", 1, si, 0)                                   ; GdiplusVersion = 1
+    DllCall("gdiplus\GdiplusStartup", "Ptr*", &tok := 0, "Ptr", si, "Ptr", 0)
+
+    DllCall("gdiplus\GdipCreateBitmapFromFile", "WStr", path, "Ptr*", &src := 0)
+    DllCall("gdiplus\GdipGetImageWidth",  "Ptr", src, "UInt*", &srcW := 0)
+    DllCall("gdiplus\GdipGetImageHeight", "Ptr", src, "UInt*", &srcH := 0)
+
+    ; Fit within the square, preserving aspect ratio, centered.
+    scale := Min(size / srcW, size / srcH)
+    dw := Round(srcW * scale), dh := Round(srcH * scale)
+    dx := (size - dw) // 2, dy := (size - dh) // 2
+
+    DllCall("gdiplus\GdipCreateBitmapFromScan0", "Int", size, "Int", size, "Int", 0
+          , "Int", 0x26200A, "Ptr", 0, "Ptr*", &dst := 0)      ; 32bppARGB
+    DllCall("gdiplus\GdipGetImageGraphicsContext", "Ptr", dst, "Ptr*", &g := 0)
+    DllCall("gdiplus\GdipSetInterpolationMode", "Ptr", g, "Int", 7)  ; HighQualityBicubic
+    DllCall("gdiplus\GdipSetSmoothingMode",     "Ptr", g, "Int", 4)  ; AntiAlias
+    DllCall("gdiplus\GdipSetPixelOffsetMode",   "Ptr", g, "Int", 2)  ; HighQuality
+    DllCall("gdiplus\GdipDrawImageRectI", "Ptr", g, "Ptr", src
+          , "Int", dx, "Int", dy, "Int", dw, "Int", dh)
+    DllCall("gdiplus\GdipCreateHICONFromBitmap", "Ptr", dst, "Ptr*", &hicon := 0)
+
+    DllCall("gdiplus\GdipDeleteGraphics", "Ptr", g)
+    DllCall("gdiplus\GdipDisposeImage", "Ptr", dst)
+    DllCall("gdiplus\GdipDisposeImage", "Ptr", src)
+    DllCall("gdiplus\GdiplusShutdown", "Ptr", tok)
+    return hicon
 }
 
 ApplyAppearanceChanges(appearanceFields, themeDDL := "") {
