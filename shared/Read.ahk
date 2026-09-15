@@ -57,6 +57,23 @@ ReadInt(address) {
     return NumGet(buf, 0, "Int")
 }
 
+ReadInt64(address) {
+    global H_PROCESS
+    buf := Buffer(8, 0)
+
+    success := DllCall("ReadProcessMemory"
+        , "Ptr", H_PROCESS
+        , "Ptr", address
+        , "Ptr", buf.Ptr
+        , "UPtr", 8
+        , "UPtr*", 0)
+
+    if !success
+        return 0
+
+    return NumGet(buf, 0, "Int64")
+}
+
 ReadByte(address) {
     global H_PROCESS
     buf := Buffer(1, 0)
@@ -107,13 +124,29 @@ ReadString(address) {
 
 ReadInstanceName(instanceAddr) {
     global OFFSETS
-    
+
+    ; Roblox build 0.733 (2026-08-06) moved the name behind a container:
+    ; Instance + NameContainer gives the container, and Name is then an offset
+    ; INTO it holding an inline std::string. Older builds stored a pointer to the
+    ; string directly at Instance + Name, so both layouts are tried -- the offsets
+    ; feed says which one we are on by whether it carries Instance.NameContainer.
+    if (OFFSETS.Has("NameContainer") && OFFSETS.Has("Name")) {
+        container := ReadPointer(instanceAddr + (OFFSETS["NameContainer"] + 0))
+
+        if (container) {
+            containerName := ReadString(container + (OFFSETS["Name"] + 0))
+
+            if (containerName != "")
+                return containerName
+        }
+    }
+
     nameOffset := OFFSETS["Name"] + 0
     namePtr := ReadPointer(instanceAddr + nameOffset)
-    
+
     if (!namePtr)
         return "<null>"
-    
+
     return ReadString(namePtr)
 }
 

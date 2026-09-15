@@ -145,6 +145,60 @@ ShowConfigAlert(title, message) {
     dlg.Show("w350 h140")
 }
 
+; A config being imported has the same name as an existing one. Returns
+; "overwrite", "copy" (import under a free "name (2)" style name), or "skip".
+ShowImportCollisionDialog(configName) {
+    global APPEARANCE
+
+    Accent    := APPEARANCE["accent_color"]
+    BgColor   := APPEARANCE["bg_color"]
+    TextColor := APPEARANCE["text_color"]
+
+    choice := "skip"
+
+    dlg := Gui("AlwaysOnTop +Border")
+    dlg.Title := "Import Conflict"
+    dlg.BackColor := "0x" BgColor
+    dlg.SetFont(, "Segoe UI")
+
+    dlg.AddText("x40 y12 w310 h25 c" TextColor, "Config Already Exists").SetFont("s14 bold")
+    dlg.AddPicture("x12 y14 w22 h22 Icon84", "imageres.dll")
+    Border(dlg, 10, 42, 340, 1)
+
+    dlg.AddText("x12 y55 w338 h30 c" TextColor, "A config named '" configName "' already exists.").SetFont("s10")
+
+    overwriteBtn := button(dlg, "Overwrite", 60, 100, {
+        h: 28,
+        w: 90,
+        bg: "CC3333",
+        fontSize: 11
+    })
+
+    copyBtn := button(dlg, "Keep Both", 160, 100, {
+        h: 28,
+        w: 90,
+        fontSize: 11
+    })
+
+    skipBtn := button(dlg, "Skip", 260, 100, {
+        h: 28,
+        w: 90,
+        bg: BgColor,
+        fontSize: 11
+    })
+
+    overwriteBtn.OnEvent("Click", (*) => (choice := "overwrite", dlg.Destroy()))
+    copyBtn.OnEvent("Click", (*) => (choice := "copy", dlg.Destroy()))
+    skipBtn.OnEvent("Click", (*) => (choice := "skip", dlg.Destroy()))
+    dlg.OnEvent("Close", (*) => dlg.Destroy())
+    dlg.OnEvent("Escape", (*) => dlg.Destroy())
+
+    dlg.Show("w360 h140")
+
+    WinWaitClose(dlg.Hwnd)
+    return choice
+}
+
 ShowConfigConfirmDialog(configName) {
     global APPEARANCE
 

@@ -79,37 +79,37 @@ GetTotemStateText() {
 }
 
 BuildSummaryPayload() {
-    global Macro, MAIN, SETTINGS, ROD, WebhookSession
+    global Macro, MAIN, WEBHOOK, SETTINGS, ROD, WebhookSession
 
     runtimeMs := WebhookSession.startedAt ? (A_TickCount - WebhookSession.startedAt) : 0
 
     headerText := "## XTernal Summary"
-    if (MAIN["webhook_summary_session_time"])
+    if (WEBHOOK["webhook_summary_session_time"])
         headerText .= "`n**Session runtime:** " FormatSessionRuntime(runtimeMs)
 
     statLines := []
-    if (MAIN["webhook_summary_fish"]) {
+    if (WEBHOOK["webhook_summary_fish"]) {
         statLines.Push("**Caught:** " Macro.fishCaughtCount)
         statLines.Push("**Lost:** " Macro.fishLostCount)
     }
-    if (MAIN["webhook_summary_success_rate"]) {
+    if (WEBHOOK["webhook_summary_success_rate"]) {
         total := Macro.fishCaughtCount + Macro.fishLostCount
         rate := total > 0 ? (Macro.fishCaughtCount / total) * 100.0 : 0.0
         statLines.Push("**Success Rate:** " Format("{:.1f}", rate) "%")
     }
-    if (MAIN["webhook_summary_cast_timeouts"])
+    if (WEBHOOK["webhook_summary_cast_timeouts"])
         statLines.Push("**Cast Timeouts:** " Macro.castTimeoutCount)
-    if (MAIN["webhook_summary_totem_pops"])
+    if (WEBHOOK["webhook_summary_totem_pops"])
         statLines.Push("**Totems Popped:** " Macro.totemPopCount)
 
     identityLines := []
-    if (MAIN["webhook_summary_rod"])
+    if (WEBHOOK["webhook_summary_rod"])
         identityLines.Push("**Rod:** " (ROD != "" ? ROD : "---"))
-    if (MAIN["webhook_summary_config"]) {
+    if (WEBHOOK["webhook_summary_config"]) {
         cfg := SETTINGS.Has("last_config") ? SETTINGS["last_config"] : ""
         identityLines.Push("**Config:** " (cfg != "" ? cfg : "---"))
     }
-    if (MAIN["webhook_summary_totem_state"])
+    if (WEBHOOK["webhook_summary_totem_state"])
         identityLines.Push("**Auto Totem:** " GetTotemStateText())
 
     innerComponents := []
@@ -147,16 +147,16 @@ JoinLines(lines) {
 }
 
 SendSummaryWebhook() {
-    global MAIN, WebhookSession
+    global WEBHOOK, WebhookSession
 
-    if !MAIN["webhook_enabled"]
+    if !WEBHOOK["webhook_enabled"]
         return
 
-    url := MAIN["webhook_url"]
+    url := WEBHOOK["webhook_url"]
     if (url = "")
         return
 
-    intervalMin := Max(1, MAIN["webhook_summary_interval_min"] + 0)
+    intervalMin := Max(1, WEBHOOK["webhook_summary_interval_min"] + 0)
     intervalMs := intervalMin * 60 * 1000
 
     if (WebhookSession.lastSummaryAt && (A_TickCount - WebhookSession.lastSummaryAt) < intervalMs)
@@ -171,12 +171,12 @@ SendSummaryWebhook() {
 }
 
 SendInstantAlert(title, desc, color := "") {
-    global MAIN
+    global WEBHOOK
 
-    if !MAIN["webhook_enabled"]
+    if !WEBHOOK["webhook_enabled"]
         return
 
-    url := MAIN["webhook_url"]
+    url := WEBHOOK["webhook_url"]
     if (url = "")
         return
 

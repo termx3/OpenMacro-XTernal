@@ -23,7 +23,7 @@
 #Requires AutoHotkey v2.0
 
 GetAdvSettingsGui() {
-    global APPEARANCE, MAIN, SETTINGS
+    global APPEARANCE, MAIN, SETTINGS, WEBHOOK, USERPREFS
     static hwnd := 0
 
     if (hwnd && WinExist("ahk_id " hwnd)) {
@@ -35,6 +35,8 @@ GetAdvSettingsGui() {
     BgColor     := APPEARANCE["bg_color"]
     TextColor   := APPEARANCE["text_color"]
 
+    ; Widened from 400 to fit all tab labels on a single row -- at 400px the seven
+    ; tabs wrap to a second row that overlaps the existing tabs' content (fixed y25).
     GuiShowOpts := "w400 h420 x900 y100"
 
     mg := Gui("+AlwaysOnTop +Border")
@@ -45,7 +47,7 @@ GetAdvSettingsGui() {
     button.DefaultTextColor := "0x" TextColor
     button.DefaultBg := "0x" Accent
 
-    MainTab := mg.AddTab3("x0 y0 w400 h420 c" Accent, ["Macro", "Auto Totem", "Webhook"])
+    MainTab := mg.AddTab3("x0 y0 w400 h420 c" Accent, ["Macro", "Auto Totem", "Webhook", "Hunt Detect", "Sov Recharge", "Enchant"])
     MainTab.SetFont("bold")
 
     MainTab.UseTab(1)
@@ -108,7 +110,11 @@ GetAdvSettingsGui() {
     ShakeIntervalHelp.SetFont("underline")
     ShakeIntervalHelp.OnEvent("Click", (*) => InfoPopup.Show("Shake Interval", "How often the macro sends Enter during the shake phase while waiting for the fishing UI to appear. Lower values shake more aggressively, higher values shake less often."))
 
-    SaveFishBtn := button(mg, "Save", 270, 340, {w: 100, h: 23, bg: BgColor, fontSize: 10})
+    mg.AddText("x20 y330 w130 h20 c" TextColor, "Lullaby Mode").SetFont("s10")
+    LullabyMode := mg.AddDDL("x270 y330 w100 h100", ["Prismatic/Serenity", "Quickening", "Strenghtening", "Resistant", "Fortuitous"])
+    ; no help needed
+
+    SaveFishBtn := button(mg, "Save", 270, 360, {w: 100, h: 23, bg: BgColor, fontSize: 10})
 
     MainTab.UseTab(2)
     mg.AddGroupBox("x10 y25 w380 h150 c" TextColor, "Settings").SetFont("s9 bold")
@@ -134,11 +140,17 @@ GetAdvSettingsGui() {
 
     AutoTotemEnabled := mg.AddCheckbox("x20 y140 h20 w20")
     mg.AddText("x40 y141 w60 h20 c" TextColor, "Enable").SetFont("s10")
-	
+
 	PublicServerEnabled := mg.AddCheckbox("x120 y140 h20 w20")
     mg.AddText("x140 y141 w100 h20 c" TextColor, "Public Server").SetFont("s10")
 
     SaveTotemBtn := button(mg, "Save", 270, 138, {w: 100, h: 23, bg: BgColor, fontSize: 10})
+
+    ; ── Swift upsell: XTernal auto-totem is Aurora-only; Swift auto-uses them all ──
+    mg.AddText("x20 y190 w360 h18 c" TextColor, "Auto Totem here is limited to the Aurora Totem.").SetFont("s9")
+    SwiftTotemPitch := mg.AddText("x20 y210 w360 h18 c" Accent, "Swift supports every totem. — Get Swift →")
+    SwiftTotemPitch.SetFont("s9 bold underline")
+    SwiftTotemPitch.OnEvent("Click", (*) => Run("https://openmacro.net/products"))
 
     MainTab.UseTab(3)
     mg.AddGroupBox("x10 y25 w380 h75 c" TextColor, "Settings").SetFont("s9 bold")
@@ -185,6 +197,33 @@ GetAdvSettingsGui() {
     AlertTotemFailedCb := mg.AddCheckbox("x20 y262 h20 w20")
     mg.AddText("x40 y263 w200 h20 c" TextColor, "Auto Totem Failed").SetFont("s10")
 
+    ; ── Tabs 4-6: Swift-exclusive feature upsells (no XTernal equivalent) ─────────
+    MainTab.UseTab(4)
+    mg.AddGroupBox("x10 y25 w380 h220 c" TextColor, "Hunt Detect — Swift").SetFont("s9 bold")
+    mg.AddText("x25 y55 w350 h110 c" TextColor, "Never miss a rare spawn. Swift watches and instantly pings your Discord the moment a hunt you care about begins. Kraken, Megalodon, Leviathan, Sovereign Surge, migrations and ~60 more. Choose your targets or add your own.").SetFont("s10")
+    mg.AddText("x25 y175 w350 h18 c" TextColor, "Not available in XTernal.").SetFont("s9")
+    HuntDetectPitch := mg.AddText("x25 y200 w350 h20 c" Accent, "Unlock Hunt Detect with Swift — Get Swift →")
+    HuntDetectPitch.SetFont("s10 bold underline")
+    HuntDetectPitch.OnEvent("Click", (*) => Run("https://openmacro.net/products"))
+
+    MainTab.UseTab(5)
+    mg.AddGroupBox("x10 y25 w380 h220 c" TextColor, "Sovereign Recharge — Swift").SetFont("s9 bold")
+    mg.AddText("x25 y55 w350 h110 c" TextColor, "Keep your Sovereign rod topped up automatically. Swift watches its power and recharges between casts whenever it drops below your set threshold, so a long AFK grind never stalls on an empty Sovereign. Set your min and max %, it handles the rest.").SetFont("s10")
+    mg.AddText("x25 y175 w350 h18 c" TextColor, "Not available in XTernal.").SetFont("s9")
+    SovRechargePitch := mg.AddText("x25 y200 w350 h20 c" Accent, "Unlock Sovereign Recharge with Swift — Get Swift →")
+    SovRechargePitch.SetFont("s10 bold underline")
+    SovRechargePitch.OnEvent("Click", (*) => Run("https://openmacro.net/products"))
+
+    MainTab.UseTab(6)
+    mg.AddGroupBox("x10 y25 w380 h220 c" TextColor, "Auto Enchant — Swift").SetFont("s9 bold")
+    mg.AddText("x25 y55 w350 h110 c" TextColor, "Roll the enchant you actually want — fully AFK. Swift reads your equipped rod, then re-rolls the Enchant Altar until it lands the target enchant you picked from the catalog. Set it and walk away.").SetFont("s10")
+    mg.AddText("x25 y175 w350 h18 c" TextColor, "Not available in XTernal.").SetFont("s9")
+    EnchantPitch := mg.AddText("x25 y200 w350 h20 c" Accent, "Unlock Auto Enchant with Swift — Get Swift →")
+    EnchantPitch.SetFont("s10 bold underline")
+    EnchantPitch.OnEvent("Click", (*) => Run("https://openmacro.net/products"))
+
+    MainTab.UseTab()
+
     ApplyCastMode(showPopup := false, *) {
         switch CastMode.Text {
             case "Perfect":
@@ -228,6 +267,9 @@ GetAdvSettingsGui() {
         FishingActionDelay.Value := MAIN["fishing_action_delay_ms"]
         CompletionThreshold.Value := Format("{:.1f}", MAIN["completion_threshold"]) "%"
         ShakeInterval.Value := MAIN["shake_interval_ms"]
+        try ControlChooseString(USERPREFS["lullaby_mode"], LullabyMode)
+        catch
+            LullabyMode.Choose(1)
 
         AutoTotemEnabled.Value := MAIN["auto_totem_enabled"]
 		PublicServerEnabled.Value := MAIN["public_server_enabled"]
@@ -235,20 +277,20 @@ GetAdvSettingsGui() {
         TotemInterval.Value := MAIN["auto_totem_interval_sec"]
         ApplyUseMode()
 
-        WebhookUrlEdit.Value := MAIN["webhook_url"]
-        WebhookEnabled.Value := MAIN["webhook_enabled"]
-        WebhookInterval.Value := MAIN["webhook_summary_interval_min"]
+        WebhookUrlEdit.Value := WEBHOOK["webhook_url"]
+        WebhookEnabled.Value := WEBHOOK["webhook_enabled"]
+        WebhookInterval.Value := WEBHOOK["webhook_summary_interval_min"]
 
-        SummaryFishCb.Value := MAIN["webhook_summary_fish"]
-        SummarySuccessRateCb.Value := MAIN["webhook_summary_success_rate"]
-        SummaryRodCb.Value := MAIN["webhook_summary_rod"]
-        SummaryConfigCb.Value := MAIN["webhook_summary_config"]
-        SummaryTotemStateCb.Value := MAIN["webhook_summary_totem_state"]
-        SummaryTotemPopsCb.Value := MAIN["webhook_summary_totem_pops"]
-        SummarySessionTimeCb.Value := MAIN["webhook_summary_session_time"]
-        SummaryCastTimeoutsCb.Value := MAIN["webhook_summary_cast_timeouts"]
+        SummaryFishCb.Value := WEBHOOK["webhook_summary_fish"]
+        SummarySuccessRateCb.Value := WEBHOOK["webhook_summary_success_rate"]
+        SummaryRodCb.Value := WEBHOOK["webhook_summary_rod"]
+        SummaryConfigCb.Value := WEBHOOK["webhook_summary_config"]
+        SummaryTotemStateCb.Value := WEBHOOK["webhook_summary_totem_state"]
+        SummaryTotemPopsCb.Value := WEBHOOK["webhook_summary_totem_pops"]
+        SummarySessionTimeCb.Value := WEBHOOK["webhook_summary_session_time"]
+        SummaryCastTimeoutsCb.Value := WEBHOOK["webhook_summary_cast_timeouts"]
 
-        AlertTotemFailedCb.Value := MAIN["webhook_alert_totem_failed"]
+        AlertTotemFailedCb.Value := WEBHOOK["webhook_alert_totem_failed"]
     }
 
     LoadFallbackTotemDdl(preferredName := "") {
@@ -396,6 +438,9 @@ GetAdvSettingsGui() {
             SETTINGS["main"]["completion_threshold"] := v
         }
 
+        USERPREFS["lullaby_mode"] := LullabyMode.Text
+        SETTINGS["user"]["lullaby_mode"] := LullabyMode.Text
+
         SaveSettingsFile()
         if (SETTINGS["last_config"] != "" && FileExist(CONFIGS_DIR "\" SETTINGS["last_config"] ".json"))
             SaveConfig(SETTINGS["last_config"])
@@ -441,23 +486,18 @@ GetAdvSettingsGui() {
     SaveWebhookSettings(*) {
         rawInterval := Trim(WebhookInterval.Value)
         if !RegExMatch(rawInterval, "^\d+$") || (rawInterval + 0) < 1 {
-            WebhookInterval.Value := MAIN["webhook_summary_interval_min"]
+            WebhookInterval.Value := WEBHOOK["webhook_summary_interval_min"]
             MsgBox("Interval must be a whole number greater than 0.", "Invalid Value")
             return
         }
 
-        MAIN["webhook_url"] := Trim(WebhookUrlEdit.Value)
-        SETTINGS["main"]["webhook_url"] := MAIN["webhook_url"]
+        WEBHOOK["webhook_url"] := Trim(WebhookUrlEdit.Value)
+        WEBHOOK["webhook_enabled"] := WebhookEnabled.Value
+        WEBHOOK["webhook_summary_interval_min"] := rawInterval + 0
 
-        MAIN["webhook_enabled"] := WebhookEnabled.Value
-        SETTINGS["main"]["webhook_enabled"] := WebhookEnabled.Value
-
-        MAIN["webhook_summary_interval_min"] := rawInterval + 0
-        SETTINGS["main"]["webhook_summary_interval_min"] := rawInterval + 0
-
+        ; Webhook settings live outside `main` now, so no per-config rewrite:
+        ; they are the user's own and follow them across every config.
         SaveSettingsFile()
-        if (SETTINGS["last_config"] != "" && FileExist(CONFIGS_DIR "\" SETTINGS["last_config"] ".json"))
-            SaveConfig(SETTINGS["last_config"])
 
         SaveWebhookBtn.ctrl.Value := "Saved!"
         SetTimer(RevertWebhookBtn, -1500)
@@ -468,11 +508,8 @@ GetAdvSettingsGui() {
     }
 
     PersistWebhookFlag(key, value) {
-        MAIN[key] := value
-        SETTINGS["main"][key] := value
+        WEBHOOK[key] := value
         SaveSettingsFile()
-        if (SETTINGS["last_config"] != "" && FileExist(CONFIGS_DIR "\" SETTINGS["last_config"] ".json"))
-            SaveConfig(SETTINGS["last_config"])
     }
 
     LoadAdvFields()

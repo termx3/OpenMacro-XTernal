@@ -24,18 +24,23 @@
 #Include Components\Border.ahk
 #Include Components\Button.ahk
 #Include Components\InfoPopup.ahk
+#Include Components\PromoBanner.ahk
 #Include Dialogs\AddMutationDialog.ahk
 #Include Dialogs\ConfigDialogs.ahk
 
 GetGui() {
-    global FULL_VER, ROBLOX_VER, RBLX_BASE, RBLX_PID, ENV, ROD, APPEARANCE
-    global StatusText, PowerText, ProgressText, CaughtText, LostText, SuccessRateText, RobloxStatusCtrl
+    global FULL_VER, RBLX_BASE, RBLX_PID, ENV, ROD, APPEARANCE
+    global StatusText, PowerText, ProgressText, CaughtText, LostText, SuccessRateText
 
     Accent     := APPEARANCE["accent_color"]
     BgColor    := APPEARANCE["bg_color"]
     TextColor  := APPEARANCE["text_color"]
     BorderColor := APPEARANCE["border_color"]
     SubColor   := DimHex(TextColor, 0.6)
+    ; Promo strip pinned above the tabs. While the offer is live this reserves
+    ; HEIGHT px at the top; once it expires bannerH is 0 and the layout below is
+    ; byte-for-byte the original (the tab + its children + status just shift down).
+    bannerH    := PromoBanner.IsActive() ? PromoBanner.HEIGHT : 0
 
     Border.DefaultColor := "0x" BorderColor
 
@@ -48,7 +53,7 @@ GetGui() {
 
     mg := Gui("AlwaysOnTop +Border")
     mg.BackColor := "0x" BgColor
-    mg.Title := "OpenMacro Xternal | " FULL_VER
+    mg.Title := "OpenMacro XTernal | " FULL_VER
     mg.SetFont(, "Segoe UI")
 
     ; App icon: the black logo in the title bar (small icon) so it stays visible on
@@ -65,10 +70,7 @@ GetGui() {
         SendMessage(0x0080, 1, LoadHQIcon(TaskIconPath, 32), , "ahk_id " mg.Hwnd)   ; WM_SETICON, ICON_BIG
     DetectHiddenWindows(prevDHW)
 
-    RobloxStatusCtrl := mg.AddText("x295 y3 w200 h15 c" TextColor, GetRobloxStatusText())
-    RobloxStatusCtrl.SetFont("s9 bold")
-
-    MainTab := mg.AddTab3("x0 y0 w400 h630 c" Accent, ["Home", "Appraisal", "Settings", "Changelog", "Credits"])
+    MainTab := mg.AddTab3("x0 y0 w400 h630 c" Accent, ["Home", "Appraisal", "Settings", "Changelog", "Credits", "More Features"])
     MainTab.SetFont("bold")
 
     MainTab.UseTab(1)
@@ -142,11 +144,8 @@ GetGui() {
     mg.AddGroupBox("x10 y260 w380 h130 c" TextColor, "Main").SetFont("s9 bold")
 
     mg.AddText("x20 y285 w150 h20 c" TextColor, "Rod Equipped").SetFont("s10")
-    global RodEquipped := mg.AddText("x140 y285 w150 h100 c" TextColor, GetRodDisplayText())
-    RodEquipped.SetFont("s10")
-    CheckEquippedBtn := mg.AddText("x300 y287 w50 h20 c" Accent, "Check")
-    CheckEquippedBtn.SetFont("underline")
-    CheckEquippedBtn.OnEvent("Click", (*) => UpdateEquippedRod())
+    global RodEquipped := mg.AddText("x220 y285 w150 h100 c" TextColor, GetRodDisplayText())
+    RodEquipped.SetFont("s10 underline")
 
     StatusText := mg.AddText("x20 y320 w150 h20 c" TextColor, "Status: ---")
     StatusText.SetFont("s10")
@@ -217,11 +216,19 @@ GetGui() {
     })
     DeleteConfigBtn.OnEvent("Click", (*) => OnDeleteConfig(ConfigDDL))
     
-    OpenConfigsBtn := mg.AddText("x20 y550 w150 h20 c" Accent, "Open Configs folder")
+    OpenConfigsBtn := mg.AddText("x20 y550 w100 h20 c" Accent, "Configs folder")
     OpenConfigsBtn.SetFont("underline")
     OpenConfigsBtn.OnEvent("Click", (*) => Run("explorer.exe `"" CONFIGS_DIR "`""))
 
-    OpenAdvSettingsBtn := mg.AddText("x225 y550 w150 h20 c" Accent, "Open Advanced Settings")
+    ImportConfigsBtn := mg.AddText("x100 y550 w65 h20 c" Accent, "Import Config")
+    ImportConfigsBtn.SetFont("underline")
+    ImportConfigsBtn.OnEvent("Click", (*) => OnImportConfigs(ConfigDDL))
+
+    ExportConfigBtn := mg.AddText("x175 y550 w65 h20 c" Accent, "Export Config")
+    ExportConfigBtn.SetFont("underline")
+    ExportConfigBtn.OnEvent("Click", (*) => OnExportConfig(ConfigDDL))
+
+    OpenAdvSettingsBtn := mg.AddText("x275 y550 w150 h20 c" Accent, "Advanced Settings")
     OpenAdvSettingsBtn.SetFont("s10 underline")
     OpenAdvSettingsBtn.OnEvent("Click", (*) => GetAdvSettingsGui())
 
@@ -269,8 +276,8 @@ GetGui() {
     AppraiseDelayHelp.OnEvent("Click", (*) => InfoPopup.Show("Appraise Delay", "How quickly the macro attempts to check and appraise the held fish. Higher values slow down the appraiser but reduce the chance of the macro breaking."))
 
     mg.AddText("x20 y141 w100 h20 c" TextColor, "Click Point").SetFont("s10")
-    AppraiseClickX := mg.AddEdit("x210 y139 w70 h20 ReadOnly", MAIN["auto_appraise_click_x"])
-    AppraiseClickY := mg.AddEdit("x310 y139 w70 h20 ReadOnly", MAIN["auto_appraise_click_y"])
+    AppraiseClickX := mg.AddEdit("x210 y139 w70 h20 ReadOnly", USERPREFS["auto_appraise_click_x"])
+    AppraiseClickY := mg.AddEdit("x310 y139 w70 h20 ReadOnly", USERPREFS["auto_appraise_click_y"])
     mg.AddText("x190 y141 w15 h20 c" TextColor, "X").SetFont("s9")
     mg.AddText("x290 y141 w15 h20 c" TextColor, "Y").SetFont("s9")
 
@@ -406,9 +413,9 @@ GetGui() {
 
     MainTab.UseTab(4)
         mg.AddText("x10 y30 w300 h100 c" TextColor, "Version " FULL_VER).SetFont("s15 bold italic")
-        mg.AddText("x260 y33 w150 h50 c" TextColor, "June 3nd, 2026").SetFont("s12 bold")
+        mg.AddText("x260 y33 w150 h50 c" TextColor, "June 11th, 2026").SetFont("s12 bold")
 
-        ChangelogText := "Patched for version-ad5d3e2906444472"
+        ChangelogText := "✦ Fixes`n- Primsatic && Serentity mode fixed"
 
         mg.AddText("x15 y65 w370 h510 c" TextColor, ChangelogText).SetFont("s10")
 
@@ -441,7 +448,40 @@ GetGui() {
 
     mg.AddText("x10 y578 w380 h20 c" SubColor, "© 2026 (@anorexc) · OpenMacro XTernal · Licensed under AGPL-3.0-only").SetFont("s8")
 
-    mg.Show("w400 h630 y100 x1100")
+    ; ── Tab 6: Swift upsell showcase (see ResizeGuiTab case 6 for this tab's size) ─
+    MainTab.UseTab(6)
+    mg.AddText("x15 y28 w370 h40 c" Accent " BackgroundTrans", "Swift").SetFont("s22 bold")
+    mg.AddText("x15 y72 w370 h20 c" TextColor " BackgroundTrans", "OpenMacro's premium Fisch macro.").SetFont("s10 italic")
+
+    mg.AddGroupBox("x10 y100 w380 h215 c" TextColor, "Everything XTernal does — and more").SetFont("s9 bold")
+    mg.AddText("x22 y125 w356 h18 c" TextColor " BackgroundTrans", "•  Hunt Detect — Discord alerts when rare hunts spawn").SetFont("s9")
+    mg.AddText("x22 y147 w356 h18 c" TextColor " BackgroundTrans", "•  Auto Sovereign Recharge — keeps your Sovereign charged").SetFont("s9")
+    mg.AddText("x22 y169 w356 h18 c" TextColor " BackgroundTrans", "•  Auto Enchant — rolls the altar until your target enchant").SetFont("s9")
+    mg.AddText("x22 y191 w356 h18 c" TextColor " BackgroundTrans", "•  Auto Aquarium — hands-free aquarium runs").SetFont("s9")
+    mg.AddText("x22 y213 w356 h18 c" TextColor " BackgroundTrans", "•  Auto Totem — every totem, not just Aurora").SetFont("s9")
+    mg.AddText("x22 y235 w356 h18 c" TextColor " BackgroundTrans", "•  Auto Angler — automatic angler activation").SetFont("s9")
+    mg.AddText("x22 y257 w356 h18 c" TextColor " BackgroundTrans", "•  Auto Appraise — fish && treasure on autopilot").SetFont("s9")
+    mg.AddText("x22 y279 w356 h18 c" TextColor " BackgroundTrans", "•  Smart trackers — Predict, Responsive && Hybrid reel engines").SetFont("s9")
+
+    mg.AddText("x15 y330 w370 h22 c" TextColor " BackgroundTrans", "Ready to upgrade your grind?").SetFont("s11 bold")
+    SwiftGetBtn := mg.AddText("x15 y358 w370 h32 c" Accent, "Get Swift →")
+    SwiftGetBtn.SetFont("s16 bold underline")
+    SwiftGetBtn.OnEvent("Click", (*) => Run("https://openmacro.net/products"))
+    SwiftPricingLink := mg.AddText("x15 y398 w370 h20 c" SubColor, "See all features and pricing at openmacro.net/products")
+    SwiftPricingLink.SetFont("s9 underline")
+    SwiftPricingLink.OnEvent("Click", (*) => Run("https://openmacro.net/products"))
+
+    ; Detach from the tab control so the promo strip is window-level (shows on
+    ; every tab), slide the whole tab page down by bannerH, then build the strip
+    ; in the freed top band. Tab3 moves its children with it, so none of the
+    ; per-tab control coordinates above need to change.
+    if (bannerH > 0) {
+        MainTab.UseTab(0)
+        MainTab.Move(, bannerH)
+        PromoBanner.Attach(mg, Accent, BgColor, TextColor, BorderColor)
+    }
+
+    mg.Show("w400 h" (630 + bannerH) " y100 x1100")
     UpdateRobloxUiState()
     UpdateMacroStatus("OFF", "---", "---")
 	MainTab.OnEvent("Change", ResizeGuiTab)
@@ -542,14 +582,12 @@ GetGui() {
     }
 
     SaveAppraiseClickPoint(x, y) {
-        global MAIN, SETTINGS
+        global USERPREFS
 
         x := Round(x + 0)
         y := Round(y + 0)
-        MAIN["auto_appraise_click_x"] := x
-        MAIN["auto_appraise_click_y"] := y
-        SETTINGS["main"]["auto_appraise_click_x"] := x
-        SETTINGS["main"]["auto_appraise_click_y"] := y
+        USERPREFS["auto_appraise_click_x"] := x
+        USERPREFS["auto_appraise_click_y"] := y
         AppraiseClickX.Value := x
         AppraiseClickY.Value := y
         SaveSettingsFile()
@@ -557,12 +595,10 @@ GetGui() {
     }
 
     ClearAppraisePoint(*) {
-        global MAIN, SETTINGS
+        global USERPREFS
 
-        MAIN["auto_appraise_click_x"] := ""
-        MAIN["auto_appraise_click_y"] := ""
-        SETTINGS["main"]["auto_appraise_click_x"] := ""
-        SETTINGS["main"]["auto_appraise_click_y"] := ""
+        USERPREFS["auto_appraise_click_x"] := ""
+        USERPREFS["auto_appraise_click_y"] := ""
         AppraiseClickX.Value := ""
         AppraiseClickY.Value := ""
         SaveSettingsFile()
@@ -585,27 +621,48 @@ GetGui() {
 				w := 400, h := 620
 			case 5: ; Credits
 				w := 400, h := 620
+			case 6: ; More Features
+				w := 400, h := 455
 		}
-		MainTab.Move(0, 0, w, h)
-		mg.Show ("w" w " h" h)
+		MainTab.Move(0, bannerH, w, h)
+		mg.Show("w" w " h" (h + bannerH))
 	}
-}
-
-GetRobloxStatusText() {
-    global RBLX_PID
-    return "PID: " (RBLX_PID ? RBLX_PID : "---")
 }
 
 GetRodDisplayText() {
     global ROD
-    return (ROD != "" ? ROD : "---")
+    ; Once we're attached and in Fisch the rod name is the source of truth; until then,
+    ; reuse this field to tell the user where attachment stands (no rod yet anyway).
+    return (ROD != "" ? ROD : GetAttachStatusText())
+}
+
+; Plain-text, dialog-free attach state for the UI. Ordered cheapest-first: the no-Roblox
+; case returns before any process-memory work, so the per-second watcher refresh is light.
+GetAttachStatusText() {
+    global g_BuildUnsupported, g_AttachFailReason
+
+    if (!GetRobloxPID())
+        return "Waiting for Roblox..."
+
+    if (IsSet(g_BuildUnsupported) && g_BuildUnsupported)
+        return "Unsupported Roblox build (beta)"
+
+    ; A real attach failure beats the generic prompt: telling someone already inside
+    ; Fisch to "Join a Fisch server" reads as stuck, when the truth is the offsets
+    ; (or the API) are what's broken. See g_AttachFailReason in Constants.ahk.
+    if (IsSet(g_AttachFailReason) && g_AttachFailReason = "offsets")
+        return "Offsets don't fit this build yet"
+    if (IsSet(g_AttachFailReason) && g_AttachFailReason = "api")
+        return "Can't reach OpenMacro servers"
+
+    if (IsMemoryReady() && IsInFischGame())
+        return "Joining..."
+
+    return "Join a Fisch server"
 }
 
 UpdateRobloxUiState() {
-    global RobloxStatusCtrl, RodEquipped
-
-    if IsSet(RobloxStatusCtrl) && RobloxStatusCtrl
-        RobloxStatusCtrl.Value := GetRobloxStatusText()
+    global RodEquipped
 
     if IsSet(RodEquipped) && RodEquipped
         RodEquipped.Text := GetRodDisplayText()
@@ -751,16 +808,6 @@ ApplyAppearanceChanges(appearanceFields, themeDDL := "") {
     ReloadMacro()
 }
 
-UpdateEquippedRod() {
-    global ROD, RodEquipped
-
-    if !EnsureRobloxReady(true, true)
-        return
-
-    ROD := GetHotbarRodName()
-    UpdateRobloxUiState()
-}
-
 UpdateMacroStatus(status := "", power := "", progress := "") {
     global StatusText, PowerText, ProgressText, CaughtText, LostText, SuccessRateText, Macro
 
@@ -884,17 +931,91 @@ OnDeleteConfig(ddl) {
         return
 
     DeleteConfig(name)
+    RefreshConfigDDL(ddl)
+}
 
+RefreshConfigDDL(ddl, selectName := "") {
     ddl.Delete()
-    remaining := ListConfigs()
+    configs := ListConfigs()
 
-    if (remaining.Length = 0) {
+    if (configs.Length = 0) {
         ddl.Add(["No configs"])
         ddl.Choose(1)
+        return
+    }
+
+    ddl.Add(configs)
+    if (selectName != "") {
+        try ControlChooseString(selectName, ddl)
+        catch
+            ddl.Choose(1)
     } else {
-        ddl.Add(remaining)
         ddl.Choose(1)
     }
+}
+
+OnImportConfigs(ddl) {
+    files := FileSelect("M3", , "Import configs", "Config files (*.json)")
+    if (files.Length = 0)
+        return
+
+    imported := 0, lastName := "", failed := []
+    for path in files {
+        name := RegExReplace(RegExReplace(path, "^.*\\"), "i)\.json$")
+
+        if (FileExist(CONFIGS_DIR "\" name ".json")) {
+            choice := ShowImportCollisionDialog(name)
+            if (choice = "skip")
+                continue
+            if (choice = "copy")
+                name := FindFreeConfigName(name)
+        }
+
+        if (ImportConfigFile(path, name)) {
+            imported++
+            lastName := name
+        } else {
+            failed.Push(name)
+        }
+    }
+
+    if (imported > 0)
+        RefreshConfigDDL(ddl, lastName)
+
+    ; Imported configs are added to the list, NOT applied -- loading stays an
+    ; explicit user action, same as any locally saved config.
+    if (failed.Length > 0) {
+        names := ""
+        for i, f in failed
+            names .= (i = 1 ? "" : ", ") f
+        ShowConfigAlert("Import Failed", failed.Length " file(s) could not be imported (invalid JSON?): " names)
+    } else if (imported > 0) {
+        ShowConfigAlert("Import Complete", imported " config(s) imported. Select one and press Load to use it.")
+    }
+}
+
+OnExportConfig(ddl) {
+    if (ddl.Text = "No configs")
+        return
+
+    name := ddl.Text
+    if (!FileExist(CONFIGS_DIR "\" name ".json")) {
+        ShowConfigAlert("Export Failed", "Config '" name "' has no saved file yet. Save it first.")
+        return
+    }
+
+    dest := FileSelect("S16", A_MyDocuments "\" name ".json", "Export config", "Config files (*.json)")
+    if (dest = "")
+        return
+    if (!RegExMatch(dest, "i)\.json$"))
+        dest .= ".json"
+
+    ; Config files contain only shareable tuning since the schema split, so
+    ; export is a plain copy of the saved file.
+    if (ExportConfigFile(name, dest))
+        ShowConfigAlert("Export Complete", "Config '" name "' exported.")
+    else
+        ShowConfigAlert("Export Failed", "Could not write to that location.")
 }
 
 DimHex(hex, factor) {

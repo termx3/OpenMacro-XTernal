@@ -45,6 +45,10 @@ CreateFishingMacro() {
         powerPercent: "",
         progressPercent: "",
         isHolding: false,
+        isHoldingRight: false,
+        lastRightActionAt: 0,
+        bellonaLeftCompletionReached: false,
+        bellonaRightCompletionReached: false,
         castThreshold: 96.0,
         castWaitTimeoutMs: 15000,
         fishingEndGraceMs: 100,
@@ -115,6 +119,8 @@ InitializeCastCycle() {
     Macro.fishingLostAt := 0
     Macro.completionReached := false
     Macro.outcomeResolved := false
+    Macro.bellonaLeftCompletionReached := false
+    Macro.bellonaRightCompletionReached := false
     Macro.lastShakedAt := 0
     Macro.lastActionAt := 0
     Macro.powerBarAddr := 0
@@ -146,6 +152,10 @@ MacroLoop() {
             UpdateFishingPhase()
         case "TRANQUILITY":
             UpdateTranquilityPhase()
+        case "LULLABY":
+            UpdateLullabyPhase()
+        case "BELLONA":
+            UpdateBellonaPhase()
         case "DONE":
             if (Macro.cycleEnabled)
                 StartMacroCycle()
@@ -182,12 +192,19 @@ StartMacroCycle() {
 
     if (IsTranquilityRodText(ROD))
         Controller := TranquilityController()
+    else if (IsLullabyRodText(ROD))
+        Controller := LullabyController()
     else if (IsPinionRodText(ROD))
         Controller := PinionController()
+    else if (IsBellonaRodText(ROD))
+        Controller := BellonaController()
+    else if (IsRequiemRodText(ROD))
+        Controller := RequiemController()
     else
         Controller := FishingController()
 	Dreambreaker := IsDreambreakerRodText(ROD)
     ReleaseMouse()
+    ReleaseRightMouse()
     Controller.Reset()
     InitializeCastCycle()
 }
@@ -198,6 +215,7 @@ StopMacroCycle(nextPhase := "OFF") {
     finalProgress := Macro.progressPercent
 
     ReleaseMouse()
+    ReleaseRightMouse()
     Controller.Reset()
 
     Macro.powerPercent := ""
@@ -208,6 +226,8 @@ StopMacroCycle(nextPhase := "OFF") {
     Macro.fishingLostAt := 0
     Macro.completionReached := false
     Macro.outcomeResolved := false
+    Macro.bellonaLeftCompletionReached := false
+    Macro.bellonaRightCompletionReached := false
     Macro.lastShakedAt := 0
     Macro.lastActionAt := 0
     Macro.reelGuiAddr := 0
@@ -515,7 +535,7 @@ TryUseAutoTotemItem(itemName) {
 }
 
 CompleteAutoTotemWorkflow(success := false) {
-    global Macro, MAIN
+    global Macro, WEBHOOK
 
     needsRodReequip := Macro.totemNeedsRodReequip
 
@@ -523,7 +543,7 @@ CompleteAutoTotemWorkflow(success := false) {
         Macro.lastTotemSuccessAt := A_TickCount
         Macro.totemNightCovered := true
         Macro.totemPopCount += 1
-    } else if (MAIN["webhook_alert_totem_failed"]) {
+    } else if (WEBHOOK["webhook_alert_totem_failed"]) {
         SendInstantAlert("Auto Totem Failed", "The auto totem workflow could not complete successfully.")
     }
 
@@ -622,7 +642,21 @@ UpdateShakePhase() {
         return
     }
 
-    if (HasActiveFishingContext()) {
+    if (IsLullabyRodText(ROD) && IsMetronomeActive()) {
+        Macro.lastShakedAt := 0
+        Macro.fishingLostAt := 0
+        Macro.phase := "LULLABY"
+        return
+    }
+
+    if (IsBellonaRodText(ROD)) {
+        if (HasActiveBellonaContext() || HasActiveFishingContext()) {
+            Macro.lastShakedAt := 0
+            Macro.fishingLostAt := 0
+            Macro.phase := "BELLONA"
+            return
+        }
+    } else if (HasActiveFishingContext()) {
         Macro.lastShakedAt := 0
         Macro.fishingLostAt := 0
         Macro.phase := "FISHING"
@@ -692,6 +726,51 @@ UpdateFishingPhase() {
     }
 }
 
+UpdateBellonaPhase() {
+    global Macro, Controller, MAIN
+
+    Macro.powerPercent := ""
+
+    threshold := MAIN["completion_threshold"] + 0.0
+    contexts := GetReelContexts()
+
+    Controller.UpdateCompletionState(threshold)
+
+    progress := Controller.GetProgressPercent()
+    Macro.progressPercent := (progress = "" ? "" : Round(progress))
+
+    if (Macro.completionReached) {
+        ReleaseAllFishingMouse(true)
+        Controller.Reset()
+
+        if (contexts.Length > 0) {
+            Macro.fishingLostAt := 0
+            return
+        }
+    } else if (contexts.Length > 0 && Controller.HasActiveContext()) {
+        Macro.fishingLostAt := 0
+        Controller.Update()
+        return
+    }
+
+    ReleaseAllFishingMouse()
+    Controller.Reset()
+
+    if (!Macro.fishingLostAt)
+        Macro.fishingLostAt := A_TickCount
+
+    if ((A_TickCount - Macro.fishingLostAt) >= Macro.fishingEndGraceMs) {
+        if (!Macro.outcomeResolved) {
+            Macro.outcomeResolved := true
+            if (Macro.completionReached)
+                Macro.fishCaughtCount += 1
+            else
+                Macro.fishLostCount += 1
+        }
+        StopMacroCycle("DONE")
+    }
+}
+
 UpdateTranquilityPhase() {
     global Macro, Controller, MAIN
 
@@ -727,13 +806,76 @@ UpdateTranquilityPhase() {
     }
 }
 
+; Lullaby rod: a metronome replaces the reel bar minigame. Progress is still read
+; from the reel's progress bar, so completion/catch-end works exactly like the
+; normal fishing phase; only the per-tick action differs (LullabyController clicks
+; on the metronome's timing instead of PID-balancing a playerbar).
+UpdateLullabyPhase() {
+    global Macro, Controller, MAIN
+
+    Macro.powerPercent := ""
+
+    metronomeActive := IsMetronomeActive()
+
+    progress := GetFishingCompletionPercent()
+    Macro.progressPercent := (progress = "" ? "" : Round(progress))
+
+    if (progress != "" && progress >= (MAIN["completion_threshold"] + 0.0))
+        Macro.completionReached := true
+
+    if (Macro.completionReached) {
+        Controller.Reset()
+        if (metronomeActive) {
+            Macro.fishingLostAt := 0
+            return
+        }
+    } else if (metronomeActive) {
+        Macro.fishingLostAt := 0
+        Controller.Update()
+        return
+    }
+
+    Controller.Reset()
+
+    if (!Macro.fishingLostAt)
+        Macro.fishingLostAt := A_TickCount
+
+    if ((A_TickCount - Macro.fishingLostAt) >= Macro.fishingEndGraceMs) {
+        if (!Macro.outcomeResolved) {
+            Macro.outcomeResolved := true
+            if (Macro.completionReached)
+                Macro.fishCaughtCount += 1
+            else
+                Macro.fishLostCount += 1
+        }
+        StopMacroCycle("DONE")
+    }
+}
+
+; The action delay the macro actually enforces this tick. Normally this is the
+; user's saved setting, but the Requiem rod tracks poorly at lower delays, so we
+; force 165 ms whenever it's equipped. This is read-only/session-only on purpose:
+; we never write it back to MAIN or settings, so the user's saved value (and their
+; tracking on every other rod) is left untouched and there's nothing to "put back"
+; next session.
+EffectiveFishingActionDelayMs() {
+    global MAIN, ROD
+
+    static REQUIEM_ACTION_DELAY_MS := 165
+
+    if (IsRequiemRodText(ROD))
+        return REQUIEM_ACTION_DELAY_MS
+
+    return MAIN["fishing_action_delay_ms"] + 0
+}
+
 HoldMouse() {
-    global Macro, MAIN
+    global Macro
 
     if (Macro.isHolding)
         return
 
-    delay := MAIN["fishing_action_delay_ms"] + 0
+    delay := EffectiveFishingActionDelayMs()
     if (Macro.phase = "FISHING" && delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
         return
 
@@ -743,18 +885,53 @@ HoldMouse() {
 }
 
 ReleaseMouse(force := false) {
-    global Macro, MAIN
+    global Macro
 
     if (!Macro.isHolding)
         return
 
-    delay := MAIN["fishing_action_delay_ms"] + 0
+    delay := EffectiveFishingActionDelayMs()
     if (!force && Macro.phase = "FISHING" && delay > 0 && Macro.lastActionAt && (A_TickCount - Macro.lastActionAt) < delay)
         return
 
     Send("{LButton up}")
     Macro.isHolding := false
     Macro.lastActionAt := A_TickCount
+}
+
+HoldRightMouse() {
+    global Macro
+
+    if (Macro.isHoldingRight)
+        return
+
+    delay := EffectiveFishingActionDelayMs()
+    if (delay > 0 && Macro.lastRightActionAt && (A_TickCount - Macro.lastRightActionAt) < delay)
+        return
+
+    Send("{RButton down}")
+    Macro.isHoldingRight := true
+    Macro.lastRightActionAt := A_TickCount
+}
+
+ReleaseRightMouse(force := false) {
+    global Macro
+
+    if (!Macro.isHoldingRight)
+        return
+
+    delay := EffectiveFishingActionDelayMs()
+    if (!force && delay > 0 && Macro.lastRightActionAt && (A_TickCount - Macro.lastRightActionAt) < delay)
+        return
+
+    Send("{RButton up}")
+    Macro.isHoldingRight := false
+    Macro.lastRightActionAt := A_TickCount
+}
+
+ReleaseAllFishingMouse(force := false) {
+    ReleaseMouse(force)
+    ReleaseRightMouse(force)
 }
 
 ReadFramePosition(frameAddr) {
@@ -781,6 +958,18 @@ ReadFrameSize(frameAddr) {
         X: scaleX,
         XOffset: offsetX
     }
+}
+
+; GuiObject.Rotation in degrees. The Lullaby metronome's needle ("Ticker") sweeps
+; this 0..180 and is the only signal the LullabyController reads. Returns "" when
+; the offset is missing so the decision logic can ignore the frame.
+ReadFrameRotation(frameAddr) {
+    global OFFSETS
+
+    if (!frameAddr || !OFFSETS.Has("FrameRotation"))
+        return ""
+
+    return ReadFloat(frameAddr + (OFFSETS["FrameRotation"] + 0))
 }
 
 GetReelGui() {
@@ -829,6 +1018,32 @@ ReadTranquilityProgressPercent(root := 0) {
         return ""
 
     return ReadProgressBarPercent(fill)
+}
+
+; Lullaby metronome: reel > bar > Details > Metronome. Its children are the
+; rotating needle ("Ticker") and the (unreadable) target arcs; the controller
+; reads only the Ticker's rotation.
+GetMetronome() {
+    reelGui := GetReelGui()
+    if (!reelGui || !IsReelGuiVisible(reelGui))
+        return 0
+
+    bar := FindChildByName(reelGui, "bar")
+    if (!bar)
+        return 0
+
+    details := FindChildByName(bar, "Details")
+    return details ? FindChildByName(details, "Metronome") : 0
+}
+
+GetMetronomeTicker(metronome := 0) {
+    metronome := metronome ? metronome : GetMetronome()
+    return metronome ? FindChildByName(metronome, "Ticker") : 0
+}
+
+IsMetronomeActive() {
+    ticker := GetMetronomeTicker()
+    return (ticker && ReadGuiObjectVisible(ticker)) ? true : false
 }
 
 ReadGuiObjectVisible(instanceAddr) {
@@ -928,6 +1143,82 @@ HasActiveFishingContext(ctx := "") {
     if (ctx = "")
         ctx := GetReelBarContext()
     return (ctx && ctx.fish && ctx.playerbar) ? true : false
+}
+
+; --- Bellona's Waraxe dual-reel support -------------------------------------
+; Bellona fishes a left and a right reel simultaneously, so it needs every
+; visible "reel" ScreenGui (not just the first one GetReelGui returns).
+BuildReelContext(reelGui) {
+    if (!reelGui)
+        return 0
+
+    barFrame := FindChildByName(reelGui, "bar")
+    if (!barFrame)
+        return 0
+
+    progressFrame := FindChildByName(barFrame, "progress")
+    progressBar := progressFrame ? FindChildByName(progressFrame, "bar") : 0
+    barPos := ReadFramePosition(barFrame)
+
+    return {
+        reel: reelGui,
+        bar: barFrame,
+        fish: FindChildByName(barFrame, "fish"),
+        playerbar: FindChildByName(barFrame, "playerbar"),
+        progress: progressFrame,
+        progressBar: progressBar,
+        barX: barPos.X
+    }
+}
+
+GetReelContexts() {
+    playerGui := FindPlayerGui()
+    contexts := []
+    if (!playerGui)
+        return contexts
+
+    for child in ReadChildren(playerGui) {
+        if (ReadInstanceName(child) != "reel" || ReadClassName(child) != "ScreenGui")
+            continue
+
+        ctx := BuildReelContext(child)
+        if (ctx)
+            contexts.Push(ctx)
+    }
+
+    SortReelContextsByBarX(contexts)
+    return contexts
+}
+
+SortReelContextsByBarX(contexts) {
+    i := 1
+    while (i <= contexts.Length) {
+        j := i + 1
+        while (j <= contexts.Length) {
+            if (contexts[j].barX < contexts[i].barX) {
+                tmp := contexts[i]
+                contexts[i] := contexts[j]
+                contexts[j] := tmp
+            }
+            j += 1
+        }
+        i += 1
+    }
+}
+
+HasActiveBellonaContext() {
+    for ctx in GetReelContexts() {
+        if (ctx && ctx.fish && ctx.playerbar)
+            return true
+    }
+    return false
+}
+
+ReadReelCompletionPercent(ctx) {
+    if (!ctx || !ctx.progressBar)
+        return ""
+
+    return ReadProgressBarPercent(ctx.progressBar)
 }
 
 GetReelProgressContext() {
@@ -1130,6 +1421,15 @@ GetActiveNoteTarget() {
 }
 
 class FishingController {
+    ; button defaults to "LButton" so every existing single-reel rod behaves
+    ; exactly as before; Bellona constructs a left ("LButton") and right
+    ; ("RButton") controller to drive both reels independently.
+    button := "LButton"
+
+    __New(button := "LButton") {
+        this.button := button
+    }
+
     Reset() {
         for _, propName in ["lastPlayerbarPos", "lastFishPos", "pwmAccumulator"] {
             if (this.HasOwnProp(propName))
@@ -1268,6 +1568,13 @@ class FishingController {
 	}
 
     Hold() {
+		if (this.button = "RButton") {
+			if(this.IsInverted())
+				ReleaseRightMouse()
+			else
+				HoldRightMouse()
+			return
+		}
 		if(this.IsInverted())
 			ReleaseMouse()
 		else
@@ -1275,10 +1582,128 @@ class FishingController {
     }
 
     Release() {
+		if (this.button = "RButton") {
+			if(this.IsInverted())
+				HoldRightMouse()
+			else
+				ReleaseRightMouse()
+			return
+		}
 		if(this.IsInverted())
 			HoldMouse()
 		else
 			ReleaseMouse()
+    }
+}
+
+; Bellona's Waraxe drives two reels at once: a left reel (LButton) and a right
+; reel (RButton). It reuses the base FishingController PID per side and only
+; reports a successful catch once BOTH sides reach the completion threshold.
+class BellonaController {
+    __New() {
+        this.left := FishingController("LButton")
+        this.right := FishingController("RButton")
+    }
+
+    Reset() {
+        this.left.Reset()
+        this.right.Reset()
+        ReleaseAllFishingMouse(true)
+    }
+
+    GetContexts() {
+        return GetReelContexts()
+    }
+
+    GetSideContexts() {
+        contexts := this.GetContexts()
+        leftCtx := 0
+        rightCtx := 0
+
+        if (contexts.Length >= 2) {
+            leftCtx := contexts[1]
+            rightCtx := contexts[contexts.Length]
+        } else if (contexts.Length = 1) {
+            if (contexts[1].barX < 0.5)
+                leftCtx := contexts[1]
+            else
+                rightCtx := contexts[1]
+        }
+
+        return { left: leftCtx, right: rightCtx }
+    }
+
+    HasReelGui() {
+        return this.GetContexts().Length > 0
+    }
+
+    HasActiveContext() {
+        for ctx in this.GetContexts() {
+            if (ctx && ctx.fish && ctx.playerbar)
+                return true
+        }
+        return false
+    }
+
+    GetProgressPercent() {
+        progressValues := []
+        for ctx in this.GetContexts() {
+            progress := ReadReelCompletionPercent(ctx)
+            if (progress != "")
+                progressValues.Push(progress)
+        }
+
+        if (!progressValues.Length)
+            return ""
+
+        minProgress := progressValues[1]
+        for progress in progressValues {
+            if (progress < minProgress)
+                minProgress := progress
+        }
+        return minProgress
+    }
+
+    UpdateCompletionState(threshold) {
+        global Macro
+
+        sides := this.GetSideContexts()
+        if (sides.left) {
+            leftProgress := ReadReelCompletionPercent(sides.left)
+            if (leftProgress != "" && leftProgress >= threshold)
+                Macro.bellonaLeftCompletionReached := true
+        }
+
+        if (sides.right) {
+            rightProgress := ReadReelCompletionPercent(sides.right)
+            if (rightProgress != "" && rightProgress >= threshold)
+                Macro.bellonaRightCompletionReached := true
+        }
+
+        Macro.completionReached := Macro.bellonaLeftCompletionReached && Macro.bellonaRightCompletionReached
+    }
+
+    IsCatchSuccessful() {
+        global Macro
+        return Macro.bellonaLeftCompletionReached && Macro.bellonaRightCompletionReached
+    }
+
+    Update() {
+        sides := this.GetSideContexts()
+
+        if (sides.left && sides.left.fish && sides.left.playerbar) {
+            this.left.Update(sides.left)
+        } else {
+            this.left.Reset()
+            ReleaseMouse(true)
+        }
+
+        if (sides.right && sides.right.fish && sides.right.playerbar) {
+            this.right.Update(sides.right)
+        } else {
+            this.right.Reset()
+            ReleaseRightMouse(true)
+        }
     }
 }
 
@@ -1389,6 +1814,15 @@ class PinionController extends FishingController {
     }
 }
 
+; The Requiem rod reels like any single-reel rod, so it inherits the base PID
+; controller unchanged. Its only rod-specific quirk is timing: it tracks poorly
+; unless the action delay is 165 ms, which EffectiveFishingActionDelayMs() forces
+; for the session whenever this rod is equipped. The dedicated subclass keeps it a
+; first-class, recognised rod alongside the others (and gives it a home if Requiem
+; ever needs bespoke reeling behaviour).
+class RequiemController extends FishingController {
+}
+
 class TranquilityController {
     static HIT_Y_MIN := 0.78
     static HIT_Y_MAX := 0.90
@@ -1464,5 +1898,77 @@ class TranquilityController {
         this.lastKeySentAt[key] := now
         this.hitNotes[noteAddr] := now
         return true
+    }
+}
+
+; The Lullaby needle rotation sweeps 0..180. Each buff defines the window(s) of
+; that sweep where the white arc sits and clicking scores. The arc position is
+; baked into the texture and isn't readable, so these windows are fixed per buff
+; (the user picks the buff via the "Lullaby Mode" dropdown). Mirrors the
+; AdvSettingsDialog spellings, including the GUI's "Strenghtening" typo and the
+; combined "Prismatic/Serenity" dropdown label (both share the Prismatic windows),
+; since lullaby_mode is persisted as the dropdown's raw label text.
+LullabyWindowsFor(mode) {
+    switch StrLower(Trim(mode)) {
+        case "quickening":                      return [[0.0, 90.0]]
+        case "strengthening", "strenghtening":  return [[76.0, 104.0]]
+        case "fortuitous":                      return [[90.0, 180.0]]
+        case "prismatic", "prismatic/serenity", "serenity":
+            return [[0.0, 20.0], [160.0, 180.0]]
+        case "resistant":                       return [[0.0, 20.0], [76.0, 104.0], [160.0, 180.0]]
+        default:                                return []
+    }
+}
+
+; True if the needle rotation falls inside any window. "" and NaN never match.
+LullabyInAnyWindow(rotation, windows) {
+    if (rotation = "" || rotation != rotation)
+        return false
+
+    for w in windows {
+        if (rotation >= w[1] && rotation <= w[2])
+            return true
+    }
+
+    return false
+}
+
+; Lullaby rod controller: instead of PID-balancing a playerbar, it clicks once
+; per pass through the active buff's scoring window(s). The single-click-per-pass
+; guard matters because spamming while the needle sits in the window kept firing
+; clicks as it swept on past the angle, costing progress.
+class LullabyController {
+    static CLICK_HOLD_MS := 30
+
+    clickedThisPass := false
+
+    Reset() {
+        ReleaseMouse(true)
+        this.clickedThisPass := false
+    }
+
+    Update(ctx := "") {
+        global MAIN
+
+        ticker := GetMetronomeTicker()
+        if (!ticker) {
+            this.clickedThisPass := false
+            return
+        }
+
+        rotation := ReadFrameRotation(ticker)
+        if (!LullabyInAnyWindow(rotation, LullabyWindowsFor(USERPREFS["lullaby_mode"]))) {
+            ; Needle is outside every window -- arm the next pass.
+            this.clickedThisPass := false
+            return
+        }
+
+        if (this.clickedThisPass)
+            return
+
+        Send("{LButton down}")
+        Sleep(LullabyController.CLICK_HOLD_MS)
+        Send("{LButton up}")
+        this.clickedThisPass := true
     }
 }

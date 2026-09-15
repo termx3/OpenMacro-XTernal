@@ -85,20 +85,3 @@ GetRunningRobloxVersionHash(pid) {
 
     throw Error("Version hash not found in path: " exePath)
 }
-
-GetLatestRobloxVersionHash() {
-    static URL := "https://clientsettingscdn.roblox.com/v1/client-version/WindowsPlayer"
-
-    req := CreateHttpRequest()
-    req.Open("GET", URL, false)
-    req.Send()
-
-    if req.Status != 200
-        throw Error("Version fetch failed: HTTP " req.Status)
-
-    json := req.ResponseText
-    if RegExMatch(json, '"clientVersionUpload"\s*:\s*"(version-[a-f0-9]+)"', &m)
-        return m[1]
-
-    throw Error("clientVersionUpload not found in response")
-}

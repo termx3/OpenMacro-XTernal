@@ -22,13 +22,13 @@
 ; ============================================================================
 #Requires AutoHotkey v2.0
 
-global REMOTE_OFFSETS_URL := "https://imtheo.lol/offsets/Offsets.json"
+global REMOTE_OFFSETS_URL := "https://openmacro.net/api/v2/offsets/latest"
 global REMOTE_OFFSETS_CACHE_TTL_MS := 60000
 global _LastRemoteFetchAt := 0
 global _LastRemoteFetchResult := ""
 
 FetchRemoteOffsets() {
-    global _LastRemoteFetchAt, _LastRemoteFetchResult, REMOTE_OFFSETS_CACHE_TTL_MS, REMOTE_OFFSETS_URL
+    global _LastRemoteFetchAt, _LastRemoteFetchResult, REMOTE_OFFSETS_CACHE_TTL_MS, REMOTE_OFFSETS_URL, OFFSETS_API_BASES
 
     if (_LastRemoteFetchAt && (A_TickCount - _LastRemoteFetchAt) < REMOTE_OFFSETS_CACHE_TTL_MS)
         return _LastRemoteFetchResult
@@ -36,11 +36,11 @@ FetchRemoteOffsets() {
     _LastRemoteFetchAt := A_TickCount
     _LastRemoteFetchResult := ""
 
-    try {
-        body := FetchTextUrl(REMOTE_OFFSETS_URL)
-    } catch {
+    ; v2 unifies offsets at the TOP-LEVEL /api/v2/offsets/latest (NOT under /xternal),
+    ; so fetch it against OFFSETS_API_BASES rather than the product base.
+    body := FetchApiText("/latest", OFFSETS_API_BASES)
+    if (body = "")
         return ""
-    }
 
     try {
         parsed := JSON.parse(body)
@@ -48,11 +48,60 @@ FetchRemoteOffsets() {
         return ""
     }
 
-    if !(parsed is Map) || !parsed.Has("Offsets")
+    ; v2 returns a lowercase {version, source, offsets} blob; accept Title-Case too
+    ; for transition safety (e.g. a canary still serving the old shape).
+    if !(parsed is Map) || !(parsed.Has("offsets") || parsed.Has("Offsets"))
         return ""
 
     _LastRemoteFetchResult := parsed
     return parsed
+}
+
+; The build hash of the NEWEST published offsets, per the API
+; (`/api/v2/offsets/latest/version` -> {"version_hash": "version-...."}). NOTE: this
+; is only "the latest", not the full set of supported builds -- the API keeps offsets
+; for many builds, each addressed by hash. Use GetOffsetsVersionStatus to decide
+; whether a specific build is supported; this is for display/context only.
+; Returns "" on any fetch/parse failure.
+GetLatestOffsetsVersionHash() {
+    global OFFSETS_API_BASES
+
+    body := FetchApiText("/latest/version", OFFSETS_API_BASES)
+    if (body = "")
+        return ""
+
+    try {
+        parsed := JSON.parse(body)
+    } catch {
+        return ""
+    }
+
+    if (parsed is Map && parsed.Has("version_hash"))
+        return Trim(parsed["version_hash"], " `t`r`n")
+    return ""
+}
+
+; Authoritative "is THIS build supported" check. Offsets are addressed by build hash
+; (`/api/v2/offsets/<hash>`): 200 = offsets published for this exact build, 404 = none
+; yet (the real "unsupported" case -- Roblox just updated, or a beta-channel build).
+; A build being older than the latest is irrelevant; only 200-vs-404 matters.
+; Returns the HTTP status code, or 0 if no base was reachable (unknown -- callers must
+; NOT treat that as unsupported). SendHttpRequest returns the response for HTTP error
+; codes (only a transport failure throws), so a 404 is observed as a status, not an
+; exception.
+GetOffsetsVersionStatus(versionHash) {
+    global OFFSETS_API_BASES, g_LastApiBase
+
+    for _, base in OFFSETS_API_BASES {
+        try {
+            req := SendHttpRequest("GET", base "/" versionHash)
+        } catch {
+            continue   ; transport error against this base -- try the next
+        }
+        g_LastApiBase := base
+        return req.Status
+    }
+    return 0
 }
 
 BackupAndWriteOffsetsFile(parsed) {

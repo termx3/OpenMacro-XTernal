@@ -49,15 +49,15 @@ GetUpdDialog(currentVer, updatedVer) {
 
     mg.AddText("x40 y10 w300 h30 c" TextColor, "Update Available (" updatedVer ")").SetFont("s15")
     mg.AddPic("x10 y10 w26 h26 icon176", "imageres.dll")
-    mg.AddText("x10 y55 w380 h200 c" TextColor, "A newer version of XTernal is available on GitHub.`n`nThe updater installs the exact files published for the matching version tag, then restarts the macro once the update is staged successfully.").SetFont("s10")
+    mg.AddText("x10 y55 w380 h200 c" TextColor, "A newer version of XTernal is available.`n`nThe updater installs the exact files published for the matching version tag, then restarts the macro once the update is staged successfully.").SetFont("s10")
 
     LearnMore := mg.AddText("x90 y122 w90 h20 c" Accent, "Learn More")
     LearnMore.SetFont("s10 italic underline")
     LearnMore.OnEvent("Click", (*) =>
         InfoPopup.Show(
             "How Updates Work",
-            "XTernal checks the repository version file on startup.`n`n"
-            . "When an update is available, it downloads the exact GitHub tag ZIP for that version, stages it in a temporary folder, then replaces the shipped app files after the current script exits."
+            "XTernal checks the OpenMacro API for a new version on startup.`n`n"
+            . "When an update is available, it downloads the exact ZIP for that version, stages it in a temporary folder, then replaces the shipped app files after the current script exits."
         )
     )
 
@@ -94,14 +94,24 @@ GetUpdDialog(currentVer, updatedVer) {
     }
 
     StartDownloadAfterHide() {
-        if BeginUpdateInstall(updatedVer, true) {
+        ; Async: the progress window takes over; the process exits into the
+        ; update helper on success. On a failure after the download started,
+        ; the user chose to update and needs to hear it failed -- then the app
+        ; boots normally (StartApp), since this dialog is long gone by then.
+        if StartUpdateWithProgress(updatedVer, OnAsyncUpdateFailed) {
             handoffStarted := true
             mg.Destroy()
             return
         }
 
+        MsgBox("Unable to start update " updatedVer ".", "Update Error")
         isDownloading := false
         mg.Show(dialogShowOpts)
+    }
+
+    OnAsyncUpdateFailed(message) {
+        MsgBox("Unable to start update " updatedVer ": " message, "Update Error")
+        StartApp()
     }
 
     CloseDialog(*) {

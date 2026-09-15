@@ -1,4 +1,4 @@
-; ============================================================================
+ ; ============================================================================
 ;  OpenMacro XTernal
 ;  SPDX-License-Identifier: AGPL-3.0-only
 ;  SPDX-FileCopyrightText: (c) 2026 OpenMacro XTernal (@anorexc)
@@ -47,12 +47,24 @@ LoadOffsets() {
 ApplyParsedOffsets(parsed) {
     global OFFSETS, OFFSETS_ROBLOX_VERSION
 
-    OFFSETS_ROBLOX_VERSION := (parsed.Has("Roblox Version")) ? parsed["Roblox Version"] : ""
+    ; v2 unifies offsets to a lowercase {version, source, offsets} blob. Older bundled
+    ; offsets.json files use Title-Case {"Roblox Version","Offsets"}; accept EITHER so
+    ; both a fresh install (bundled Title-Case) and a remote v2 heal (lowercase) work.
+    ; NOTE: the INNER namespace/field keys are identical across v1/v2, so OffsetRenameMap
+    ; below is unchanged.
+    if (parsed.Has("version"))
+        OFFSETS_ROBLOX_VERSION := parsed["version"]
+    else if (parsed.Has("Roblox Version"))
+        OFFSETS_ROBLOX_VERSION := parsed["Roblox Version"]
+    else
+        OFFSETS_ROBLOX_VERSION := ""
 
-    if (!parsed.Has("Offsets"))
-        throw Error("'Offsets' section not found in offsets.json")
-
-    nested := parsed["Offsets"]
+    if (parsed.Has("offsets"))
+        nested := parsed["offsets"]
+    else if (parsed.Has("Offsets"))
+        nested := parsed["Offsets"]
+    else
+        throw Error("'offsets' section not found in offsets.json")
     flat := Map()
 
     for _, triple in OffsetRenameMap() {
@@ -62,8 +74,25 @@ ApplyParsedOffsets(parsed) {
         cat := nested[category]
         if (!cat.Has(field))
             continue
+        ; The dumper emits 0 for anything it failed to resolve -- see
+        ; PlayerConfigurer.Pointer or ScriptContext.RequireBypass in any recent
+        ; feed. 0 is never a real offset for the fields we read (offset 0 of a
+        ; Roblox object is its vtable), so treat it as absent rather than reading
+        ; at instance+0. RbxDumperV2 2.1.7 published Misc.StringLength = 0 on
+        ; 2026-08-06: every string read returned "", which blanked every name and
+        ; class in the game and silently broke the whole macro.
+        if (cat[field] = 0)
+            continue
         flat[legacy] := cat[field]
     }
+
+    ; MSVC keeps std::string's length at +0x10 (16 bytes of SSO buffer first).
+    ; That is an STL invariant rather than a Roblox layout choice, so it is safe
+    ; to pin when a dump omits or zeroes it. Build-specific offsets are
+    ; deliberately NOT defaulted here: a stale pinned value would trade a loud
+    ; failure for a silent wrong read, which is worse.
+    if (!flat.Has("StringLength"))
+        flat["StringLength"] := 0x10
 
     OFFSETS := flat
 
@@ -110,24 +139,95 @@ TestOffsetsInMemory() {
     return foundWorkspace && foundPlayers
 }
 
+; Best-effort read of the running game's PlaceId using the current offsets.
+; Returns 0 when the DataModel can't be resolved (wrong build / pre-load) or
+; when not in a game (the Roblox menu reads PlaceId 0). Never throws.
+TryGetPlaceId() {
+    global OFFSETS
+
+    if (!OFFSETS.Has("PlaceId"))
+        return 0
+
+    dataModel := ResolveDataModelViaFakeDataModel()
+    if (!IsValidUserPointer(dataModel))
+        dataModel := ResolveDataModelViaVisualEngine()
+    if (!IsValidUserPointer(dataModel))
+        return 0
+
+    try {
+        return ReadInt64(dataModel + (OFFSETS["PlaceId"] + 0))
+    } catch {
+        return 0
+    }
+}
+
+; The DataModel resolves even on the Roblox home screen, so "DataModel exists" is
+; not "in the game". PlaceId is the reliable signal: read through our offsets it
+; equals the Fisch place id only when actually loaded into Fisch -- which also
+; confirms the PlaceId offset (and thus our DataModel mapping) is reading correctly.
+IsInFischGame() {
+    global FISCH_PLACE_ID
+    return TryGetPlaceId() = FISCH_PLACE_ID
+}
+
 TestAndHealOffsets() {
-    if (TestOffsetsInMemory())
+    global g_AttachFailReason
+
+    ; The DataModel resolves even on the Roblox home screen, so a structural pass is
+    ; NOT "in the game" -- also require PlaceId to read Fisch's id, which confirms
+    ; both that we're loaded into Fisch and that the offsets map the DataModel.
+    if (TestOffsetsInMemory() && IsInFischGame()) {
+        g_AttachFailReason := ""
         return true
+    }
+
+    ; The check above failed. Before a network heal or a failure report, decide
+    ; whether this is worth acting on. The DataModel resolves even on the menu, so
+    ; PlaceId -- not "DataModel exists" -- is what says we're actually in Fisch; the
+    ; version-hash says whether the running build even matches our offsets. The
+    ; common "failure" at startup, on the menu, or in another game is just "not in
+    ; Fisch yet" on a good build -- noise, not breakage. Only heal/report when the
+    ; running build doesn't match our offsets (a real problem we still want
+    ; recorded). PlaceId is attached to every report so the backend can separate
+    ; "broken in-game" from wrong-game and startup races.
+    placeId  := TryGetPlaceId()
+    verMatch := TelemetryOffsetsVersionMatches()
+
+    if (placeId != FISCH_PLACE_ID && verMatch) {
+        g_AttachFailReason := ""   ; benign: good build, just not in Fisch
+        throw Error("You're not in Fisch yet. Open Fisch, then start the macro.")
+    }
 
     parsed := FetchRemoteOffsets()
-    if (!parsed)
+    if (!parsed) {
+        g_AttachFailReason := "api"
+        SendOffsetHealthTelemetry("", false, false, false, placeId, g_LastApiBase)
         throw Error("Offsets appear stale and remote update is unreachable. Please retry once online or update offsets.json manually.")
+    }
 
     try {
         ApplyParsedOffsets(parsed)
     } catch as err {
+        g_AttachFailReason := "offsets"
+        SendOffsetHealthTelemetry(OFFSETS_ROBLOX_VERSION, true, TelemetryOffsetsVersionMatches(), false, TryGetPlaceId(), g_LastApiBase)
         throw Error("Remote offsets could not be applied: " err.Message)
     }
 
-    if (!TestOffsetsInMemory())
+    if (!TestOffsetsInMemory()) {
+        g_AttachFailReason := "offsets"
+        SendOffsetHealthTelemetry(OFFSETS_ROBLOX_VERSION, true, TelemetryOffsetsVersionMatches(), false, TryGetPlaceId(), g_LastApiBase)
         throw Error("Remote offsets did not match the running Roblox build.")
+    }
 
+    SendOffsetHealthTelemetry(OFFSETS_ROBLOX_VERSION, true, true, true, TryGetPlaceId(), g_LastApiBase)
     BackupAndWriteOffsetsFile(parsed)
+
+    ; Offsets are healthy now, but a heal can also succeed at the menu / in another
+    ; game -- gate "ready" on actually being in Fisch, same signal as the early out.
+    g_AttachFailReason := ""
+    if (!IsInFischGame())
+        throw Error("You're not in Fisch yet. Open Fisch, then start the macro.")
+
     return true
 }
 
@@ -138,8 +238,12 @@ OffsetRenameMap() {
         ["VisualEngine",   "Pointer",            "VisualEnginePointer"],
         ["VisualEngine",   "FakeDataModel",      "VisualEngineToDataModel1"],
         ["FakeDataModel",  "RealDataModel",      "VisualEngineToDataModel2"],
+        ["DataModel",      "PlaceId",            "PlaceId"],
         ["Player",         "LocalPlayer",        "LocalPlayer"],
         ["Instance",       "Name",               "Name"],
+        ; Roblox build 0.733 (2026-08-06) moved the name behind a container;
+        ; absent on older builds, which ReadInstanceName falls back for.
+        ["Instance",       "NameContainer",      "NameContainer"],
         ["Instance",       "ClassDescriptor",    "ClassDescriptor"],
         ["Instance",       "ClassName",          "ClassDescriptorToClassName"],
         ["Instance",       "ChildrenStart",      "Children"],
@@ -151,7 +255,8 @@ OffsetRenameMap() {
         ["GuiObject",      "Visible",            "FrameVisible"],
         ["GuiObject",      "ScreenGui_Enabled",  "ScreenGuiEnabled"],
         ["GuiObject",      "Position",           "FramePositionX"],
-        ["GuiObject",      "Size",               "FrameSizeX"]
+        ["GuiObject",      "Size",               "FrameSizeX"],
+        ["GuiObject",      "Rotation",           "FrameRotation"]
     ]
     return map
 }
@@ -217,7 +322,7 @@ IsMemoryReady() {
 }
 
 AttachToRoblox(pid := 0) {
-    global RBLX_PID, RBLX_BASE, ROD, H_PROCESS
+    global RBLX_PID, RBLX_BASE, H_PROCESS
 
     pid := pid ? pid : GetRobloxPID()
     if !pid
@@ -233,7 +338,9 @@ AttachToRoblox(pid := 0) {
 
         LoadOffsets()
         TestAndHealOffsets()
-        ROD := GetHotbarRodName()
+        ; ROD is read by RobloxAttachWatcher a few seconds after we're in Fisch, not
+        ; here: we attach the instant the PlaceId matches, but the hotbar isn't
+        ; populated yet, so an early read returns the wrong rod (see ROD_READ_DELAY_MS).
         return true
     } catch as err {
         ResetRobloxAttachmentState()
@@ -488,6 +595,49 @@ GetHotbarGui() {
     return hotbar
 }
 
+; Has the hotbar started populating? True once at least one ItemTemplate slot carries a
+; non-empty ItemName. On a fresh join the hotbar GUI is built and its slots stream in a
+; beat AFTER the PlaceId flips to Fisch, so this -- not the PlaceId flip -- is when the
+; "let it settle" clock should start. Never throws; returns false on any read failure.
+IsHotbarPopulated() {
+    try {
+        hotbar := GetHotbarGui()
+        if !hotbar
+            return false
+
+        for slotPtr in ReadChildren(hotbar) {
+            if (ReadClassName(slotPtr) != "ImageButton" || ReadInstanceName(slotPtr) != "ItemTemplate")
+                continue
+
+            nameInst := FindChildByName(slotPtr, "ItemName")
+            if !nameInst
+                continue
+
+            if (Trim(ReadGuiText(nameInst)) != "")
+                return true
+        }
+    } catch {
+    }
+    return false
+}
+
+; Read the equipped rod and commit it to ROD/UI right now. Best-effort: returns true if a
+; rod name was read and stored, false otherwise (caller decides whether to retry).
+ReadHotbarRodNow() {
+    global ROD
+
+    try {
+        rod := GetHotbarRodName()
+        if (rod != "") {
+            ROD := rod
+            UpdateRobloxUiState()
+            return true
+        }
+    } catch {
+    }
+    return false
+}
+
 GetHotbarRodName() {
     hotbar := GetHotbarGui()
     if !hotbar
@@ -538,7 +688,7 @@ GetHotbarRodDisplayText() {
         if (toolText = "")
             continue
 
-        if (ExtractPureRodName(toolText) != "" || IsPinionRodText(toolText) || IsTranquilityRodText(toolText))
+        if (ExtractPureRodName(toolText) != "" || IsBellonaRodText(toolText) || IsPinionRodText(toolText) || IsTranquilityRodText(toolText) || IsLullabyRodText(toolText) || IsRequiemRodText(toolText))
             return toolText
 
         if (fallback = "")
@@ -550,6 +700,7 @@ GetHotbarRodDisplayText() {
 
 GetKnownRodNames() {
     static rodNames := [
+        "Bellona's Waraxe",
         "Pinion's Aria",
         "Tranquility Rod",
         "Rod Of The Eternal King",
@@ -601,6 +752,15 @@ HasPinionHotbarRod() {
     return IsPinionRodText(GetHotbarRodDisplayText())
 }
 
+IsBellonaRodText(text) {
+    cleanText := StrLower(NormalizeRodDisplayText(text))
+    return (InStr(cleanText, "bellona") || InStr(cleanText, "waraxe")) ? true : false
+}
+
+HasBellonaHotbarRod() {
+    return IsBellonaRodText(GetHotbarRodDisplayText())
+}
+
 IsTranquilityRodText(text) {
     return InStr(StrLower(NormalizeRodDisplayText(text)), "tranquility") ? true : false
 }
@@ -611,6 +771,22 @@ HasTranquilityHotbarRod() {
 
 IsDreambreakerRodText(text) {
     return InStr(StrLower(NormalizeRodDisplayText(text)), "dreambreaker") ? true : false
+}
+
+IsLullabyRodText(text) {
+    return InStr(StrLower(NormalizeRodDisplayText(text)), "lullaby") ? true : false
+}
+
+HasLullabyHotbarRod() {
+    return IsLullabyRodText(GetHotbarRodDisplayText())
+}
+
+IsRequiemRodText(text) {
+    return InStr(StrLower(NormalizeRodDisplayText(text)), "requiem") ? true : false
+}
+
+HasRequiemHotbarRod() {
+    return IsRequiemRodText(GetHotbarRodDisplayText())
 }
 
 HasDreambreakerHotbarRod() {

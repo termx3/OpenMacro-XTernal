@@ -32,13 +32,13 @@ IsAutoAppraiseRuntimeEnabled() {
 }
 
 HasAutoAppraiseClickPoint() {
-    global MAIN
-    return MAIN.Has("auto_appraise_click_x")
-        && MAIN.Has("auto_appraise_click_y")
-        && Trim(MAIN["auto_appraise_click_x"]) != ""
-        && Trim(MAIN["auto_appraise_click_y"]) != ""
-        && IsNumber(MAIN["auto_appraise_click_x"])
-        && IsNumber(MAIN["auto_appraise_click_y"])
+    global USERPREFS
+    return USERPREFS.Has("auto_appraise_click_x")
+        && USERPREFS.Has("auto_appraise_click_y")
+        && Trim(USERPREFS["auto_appraise_click_x"]) != ""
+        && Trim(USERPREFS["auto_appraise_click_y"]) != ""
+        && IsNumber(USERPREFS["auto_appraise_click_x"])
+        && IsNumber(USERPREFS["auto_appraise_click_y"])
 }
 
 ClearAppraiseRuntimeCache() {
@@ -377,11 +377,11 @@ FormatAppraiseCoins(value) {
 }
 
 ClickAppraisePoint() {
-    global MAIN
+    global USERPREFS
 
     ReliableScreenClick(
-        Round(MAIN["auto_appraise_click_x"] + 0),
-        Round(MAIN["auto_appraise_click_y"] + 0)
+        Round(USERPREFS["auto_appraise_click_x"] + 0),
+        Round(USERPREFS["auto_appraise_click_y"] + 0)
     )
 }
 

@@ -109,6 +109,7 @@ SaveConfig(name, useDefaults := false) {
     data := useDefaults ? GetDefaultSettings()["main"] : SETTINGS["main"].Clone()
     PruneObsoleteMainSettings(data)
     NormalizeMainSettings(data)
+    data["config_version"] := CONFIG_SCHEMA_VERSION
 
     try {
         file := FileOpen(CONFIGS_DIR "\" name ".json", "w")
@@ -128,23 +129,31 @@ LoadConfig(name) {
         jsonData := FileRead(filePath)
         configMap := JSON.parse(jsonData)
 
-        for key, value in configMap {
-            SETTINGS["main"][key] := value
-            MAIN[key] := value
-        }
-
-        configDirty := PruneObsoleteMainSettings(SETTINGS["main"])
-        if (NormalizeMainSettings(SETTINGS["main"]))
-            configDirty := true
-
+        ; Whitelist copy: only keys the current schema knows enter the runtime.
+        ; Anything else in the file (old webhook/user keys, foreign additions)
+        ; is ignored — a config can tune fishing, never reconfigure the user.
+        configDirty := false
         defaults := GetDefaultSettings()["main"]
         for key, defaultVal in defaults {
-            if (!MAIN.Has(key)) {
-                MAIN[key] := defaultVal
+            if (configMap.Has(key)) {
+                SETTINGS["main"][key] := configMap[key]
+                MAIN[key] := configMap[key]
+            } else {
                 SETTINGS["main"][key] := defaultVal
+                MAIN[key] := defaultVal
                 configDirty := true
             }
         }
+
+        for key, _ in configMap {
+            if (!defaults.Has(key) && key != "config_version")
+                configDirty := true   ; stray keys -> rewrite the file clean
+        }
+
+        if (NormalizeMainSettings(SETTINGS["main"]))
+            configDirty := true
+        if (!configMap.Has("config_version"))
+            configDirty := true
 
         if (configDirty)
             SaveConfig(name)
@@ -200,6 +209,11 @@ MigrateAllConfigs() {
                 }
             }
 
+            if (!configMap.Has("config_version") || configMap["config_version"] != CONFIG_SCHEMA_VERSION) {
+                configMap["config_version"] := CONFIG_SCHEMA_VERSION
+                changed := true
+            }
+
             if (changed) {
                 file := FileOpen(A_LoopFileFullPath, "w")
                 file.Write(JSON.stringify(configMap, 4))
@@ -211,4 +225,59 @@ MigrateAllConfigs() {
 
     SETTINGS["last_migrated_version"] := FULL_VER
     SaveSettingsFile()
+}
+
+; ── Config sharing (import / export) ─────────────────────────────────────────
+
+; Import one shared config file into CONFIGS_DIR under `name`. The file goes
+; through the same whitelist as LoadConfig: only current tuning keys survive, so
+; a shared config can never smuggle in webhook URLs, personal state, or unknown
+; keys — regardless of which app version produced it. Returns true on success.
+ImportConfigFile(path, name) {
+    try {
+        jsonData := FileRead(path)
+        configMap := JSON.parse(jsonData)
+    } catch {
+        return false
+    }
+
+    if !(configMap is Map)
+        return false
+
+    clean := Map()
+    for key, defaultVal in GetDefaultSettings()["main"]
+        clean[key] := configMap.Has(key) ? configMap[key] : defaultVal
+    NormalizeMainSettings(clean)
+    clean["config_version"] := CONFIG_SCHEMA_VERSION
+
+    try {
+        file := FileOpen(CONFIGS_DIR "\" name ".json", "w")
+        file.Write(JSON.stringify(clean, 4))
+        file.Close()
+        return true
+    } catch {
+        return false
+    }
+}
+
+; "name" -> "name (2)" -> "name (3)"... first free config name for import-as-copy.
+FindFreeConfigName(name) {
+    if (!FileExist(CONFIGS_DIR "\" name ".json"))
+        return name
+
+    n := 2
+    while (FileExist(CONFIGS_DIR "\" name " (" n ").json"))
+        n++
+    return name " (" n ")"
+}
+
+; Copy a saved config out of CONFIGS_DIR (post-split config files contain only
+; tuning keys, so the on-disk file is already the shareable artifact).
+ExportConfigFile(name, destPath) {
+    try {
+        FileCopy(CONFIGS_DIR "\" name ".json", destPath, true)
+        return true
+    } catch {
+        return false
+    }
 }

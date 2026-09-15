@@ -25,8 +25,15 @@
 global VERSION_CHECK_COOLDOWN_MS := 60000
 global _LastVersionCheckAt := 0
 
+; Non-blocking: records whether the API has offsets for the running build into
+; g_BuildUnsupported, which the attach status text surfaces in the UI. Never pops a
+; dialog -- Roblox lingering in the tray means this runs constantly now, and an
+; unsupported build is something to *show*, not to interrupt the user over. The one
+; exception is a single muted tray tip when the build FIRST turns out unsupported
+; (usually a beta Roblox release), so the user learns why the macro is idle and that
+; it resumes on its own; the flag flipping back suppresses nothing further.
 CheckRobloxVersionMismatch(pid) {
-    global _LastVersionCheckAt, VERSION_CHECK_COOLDOWN_MS
+    global _LastVersionCheckAt, VERSION_CHECK_COOLDOWN_MS, g_BuildUnsupported
 
     if (!pid)
         return
@@ -38,13 +45,47 @@ CheckRobloxVersionMismatch(pid) {
 
     try {
         runningHash := GetRunningRobloxVersionHash(pid)
-        latestHash := GetLatestRobloxVersionHash()
-
-        if (runningHash != latestHash)
-            MsgBox("Version mismatch detected.`n`nRunning: " runningHash "`nLatest:  " latestHash, "Version Warning")
     } catch as err {
-        MsgBox("Version check failed: " err.Message "`n`nProceeding with re-attach.", "Version Warning")
+        ; No version-<hash> in the exe path (e.g. Microsoft Store Roblox): offsets can
+        ; never be matched to this install, so surface it as unsupported instead of
+        ; silently skipping the check forever -- that silence is how users ended up
+        ; parked on "Join a Fisch server" while inside Fisch. Transient failures
+        ; (OpenProcess etc.) don't carry the marker and stay invisible, as before.
+        if (InStr(err.Message, "Version hash not found"))
+            _FlagBuildUnsupported(
+                "This Roblox install doesn't expose a build version (Microsoft Store "
+                . "Roblox?). Install Roblox from roblox.com to use XTernal.")
+        return
     }
+
+    try {
+        ; "Supported" means the API has published offsets for THIS exact build, not
+        ; that it's the newest. Offsets are addressed by build hash, so ask directly:
+        ; GET /api/v2/offsets/<hash> -> 404 means no offsets for this build yet (the
+        ; real "unsupported" case: Roblox just updated, or a beta build). 200 = fine,
+        ; even if a newer build exists. 0 = couldn't reach the API -> unknown, so we
+        ; leave the flag as-is rather than guess.
+        status := GetOffsetsVersionStatus(runningHash)
+        if (status = 404)
+            _FlagBuildUnsupported(
+                "No offsets are out for this Roblox version yet - it's likely a beta build. "
+                . "XTernal resumes automatically once it's supported; switching to the "
+                . "standard Roblox release also works.")
+        else if (status = 200)
+            g_BuildUnsupported := false
+    } catch {
+        ; Version check failed (offline, etc.) -- unknown, so don't flip the flag. The
+        ; offsets fetch path surfaces any real failure on its own.
+    }
+}
+
+; Rising edge only -- one muted tray tip per unsupported episode, then just the
+; status label carries the state (see GetAttachStatusText).
+_FlagBuildUnsupported(tipText) {
+    global g_BuildUnsupported
+    if (!g_BuildUnsupported)
+        TrayTip(tipText, "Unsupported Roblox build", "Mute")
+    g_BuildUnsupported := true
 }
 
 StartMacro() {
